@@ -1,0 +1,10 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: %Bundle-Name
+Bundle-SymbolicName: org.eclipse.koneki.protocols.omadm.tests;singleton:=true
+Bundle-Version: 0.1.0.qualifier
+Bundle-Vendor: %Bundle-Vendor
+Fragment-Host: org.eclipse.koneki.protocols.omadm;bundle-version="0.1.0"
+Bundle-RequiredExecutionEnvironment: JavaSE-1.6
+Require-Bundle: org.junit;bundle-version="4.8.1"
+Export-Package: org.eclipse.koneki.protocols.omadm.tests;x-internal:=true
