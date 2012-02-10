@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011 Sierra Wireless and others.
+ * Copyright (c) 2012 Sierra Wireless and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -17,6 +17,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 
 final class DMSessionExecutor {
+
+	private final ExecutorService executorService;
+	private final ConcurrentHashMap<URI, Queue<Runnable>> commands;
 
 	public DMSessionExecutor(final ExecutorService executorService) {
 		this.executorService = executorService;
@@ -39,10 +42,9 @@ final class DMSessionExecutor {
 		return clientCommands != null ? clientCommands : newClientCommands;
 	}
 
-	private final ExecutorService executorService;
-	private final ConcurrentHashMap<URI, Queue<Runnable>> commands;
-
 	private final class DMSessionRunnableProxy implements Runnable {
+
+		private final URI client;
 
 		public DMSessionRunnableProxy(final URI client) {
 			this.client = client;
@@ -63,8 +65,6 @@ final class DMSessionExecutor {
 				}
 			}
 		}
-
-		private final URI client;
 
 	}
 

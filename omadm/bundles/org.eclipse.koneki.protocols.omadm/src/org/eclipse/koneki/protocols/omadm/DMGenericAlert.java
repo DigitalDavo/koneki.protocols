@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011 Sierra Wireless and others.
+ * Copyright (c) 2012 Sierra Wireless and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,6 +11,13 @@
 package org.eclipse.koneki.protocols.omadm;
 
 public final class DMGenericAlert {
+
+	private final String type;
+	private final String format;
+	private final String mark;
+	private final String data;
+	private final String correlator;
+	private final String source;
 
 	public DMGenericAlert(final String type, final String format, final String mark, final String data, final String correlator, final String source) {
 		if (type != null && format != null && mark != null && data != null) {
@@ -48,12 +55,5 @@ public final class DMGenericAlert {
 	public String getSource() {
 		return this.source;
 	}
-
-	private final String type;
-	private final String format;
-	private final String mark;
-	private final String data;
-	private final String correlator;
-	private final String source;
 
 }

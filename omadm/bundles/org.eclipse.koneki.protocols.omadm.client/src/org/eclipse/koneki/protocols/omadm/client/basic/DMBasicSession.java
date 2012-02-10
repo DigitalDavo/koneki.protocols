@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011 Sierra Wireless and others.
+ * Copyright (c) 2012 Sierra Wireless and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -42,6 +42,38 @@ import org.eclipse.koneki.protocols.omadm.client.basic.DMStatusManager.Results;
 import org.eclipse.koneki.protocols.omadm.client.internal.Activator;
 
 final class DMBasicSession implements Runnable {
+
+	private static final String ENCODING = "UTF-8"; //$NON-NLS-1$
+
+	private static final short UNKNOWN = 0;
+	private static final short STATUS = UNKNOWN + 1;
+	private static final short GET = STATUS + 1;
+	private static final short FINAL = GET + 1;
+	private static final short ADD = FINAL + 1;
+	private static final short DELETE = ADD + 1;
+	private static final short REPLACE = DELETE + 1;
+	private static final short COPY = REPLACE + 1;
+	private static final short SEQUENCE = COPY + 1;
+	private static final short ATOMIC = SEQUENCE + 1;
+	private static final short EXEC = ATOMIC + 1;
+	private static final short ALERT = EXEC + 1;
+	private final DMBasicClient dmClient;
+	private URI server;
+	private final URI client;
+	private final String sessionId;
+	private final DMNode[] devInfoNodes;
+	private final CommandHandler commandHandler;
+	private final ProtocolListener[] protocolLinsteners;
+	private final DMGenericAlert[] genericAlerts;
+	private final DMIDGenerator idGenerator;
+	private final DMStatusManager statusManager;
+	private final Map<String, Object[]> commandSends;
+	private boolean isSessionContinue;
+	private boolean isClientAuthenticated;
+	private boolean isSetupPhaseFired;
+	private boolean isManagementPhaseFired;
+	private String currentServerMsgID;
+	private final String userAuth;
 
 	public DMBasicSession(final DMBasicClient dmClient, final URI server, final String userAuth, final URI client, final String sessionId,
 			final DMNode[] devInfoNodes, final CommandHandler commandHandler, final ProtocolListener[] protocolLinsteners,
@@ -1139,38 +1171,5 @@ final class DMBasicSession implements Runnable {
 			messageListener.newServerPackage(message);
 		}
 	}
-
-	private final DMBasicClient dmClient;
-	private URI server;
-	private final URI client;
-	private final String sessionId;
-	private final DMNode[] devInfoNodes;
-	private final CommandHandler commandHandler;
-	private final ProtocolListener[] protocolLinsteners;
-	private final DMGenericAlert[] genericAlerts;
-	private final DMIDGenerator idGenerator;
-	private final DMStatusManager statusManager;
-	private final Map<String, Object[]> commandSends;
-	private boolean isSessionContinue;
-	private boolean isClientAuthenticated;
-	private boolean isSetupPhaseFired;
-	private boolean isManagementPhaseFired;
-	private String currentServerMsgID;
-	private final String userAuth;
-
-	private static final String ENCODING = "UTF-8"; //$NON-NLS-1$
-
-	private static final short UNKNOWN = 0;
-	private static final short STATUS = UNKNOWN + 1;
-	private static final short GET = STATUS + 1;
-	private static final short FINAL = GET + 1;
-	private static final short ADD = FINAL + 1;
-	private static final short DELETE = ADD + 1;
-	private static final short REPLACE = DELETE + 1;
-	private static final short COPY = REPLACE + 1;
-	private static final short SEQUENCE = COPY + 1;
-	private static final short ATOMIC = SEQUENCE + 1;
-	private static final short EXEC = ATOMIC + 1;
-	private static final short ALERT = EXEC + 1;
 
 }

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011 Sierra Wireless and others.
+ * Copyright (c) 2012 Sierra Wireless and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -26,6 +26,48 @@ public enum StatusCode implements Status {
 			"Unsupported media type or format"), REQUESTED_RANGE_NOT_SATISFIABLE(416, "Requested range not satisfiable"), ALREADY_EXISTS(418, //$NON-NLS-1$ //$NON-NLS-2$
 			"Already exists"), DEVICE_FULL(420, "Device full"), SIZE_MISMATCH(424, "Size mismatch"), PERMISSION_DENIED(425, "Permission denied"), COMMAND_FAILED( //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 			500, "Command failed"), DATA_STORE_FAILURE(510, "Data store failure"), ATOMIC_ROLL_BACK_FAILED(516, "Atomic roll back failed"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+
+	/**
+	 * Status codes can be returned by an add command.
+	 */
+	public static final StatusCode[] ADD_CODES = { OK, NOT_EXECUTED, ATOMIC_ROLL_BACK_OK, UNAUTHORIZED, NOT_FOUND, COMMAND_NOT_ALLOWED,
+			AUTHENTICATION_REQUIRED, REQUEST_ENTITY_TOO_LARGE, URI_TOO_LONG, UNSUPPORTED_MEDIA_TYPE_OR_FORMAT, ALREADY_EXISTS, DEVICE_FULL,
+			SIZE_MISMATCH, PERMISSION_DENIED, COMMAND_FAILED, ATOMIC_ROLL_BACK_FAILED };
+
+	/**
+	 * Status codes can be returned by a copy command.
+	 */
+	public static final StatusCode[] COPY_CODES = { OK, NOT_EXECUTED, ATOMIC_ROLL_BACK_OK, UNAUTHORIZED, FORBIDDEN, COMMAND_NOT_ALLOWED,
+			OPTIONAL_FEATURE_NOT_SUPPORTED, AUTHENTICATION_REQUIRED, URI_TOO_LONG, ALREADY_EXISTS, DEVICE_FULL, PERMISSION_DENIED, COMMAND_FAILED,
+			DATA_STORE_FAILURE, ATOMIC_ROLL_BACK_FAILED };
+
+	/**
+	 * Status codes can be returned by a delete command.
+	 */
+	public static final StatusCode[] DELETE_CODES = { OK, NOT_EXECUTED, ATOMIC_ROLL_BACK_OK, UNAUTHORIZED, FORBIDDEN, NOT_FOUND, COMMAND_NOT_ALLOWED,
+			AUTHENTICATION_REQUIRED, URI_TOO_LONG, PERMISSION_DENIED, ATOMIC_ROLL_BACK_FAILED };
+
+	/**
+	 * Status codes can be returned by a get command.
+	 */
+	public static final StatusCode[] GET_CODES = { OK, NOT_EXECUTED, UNAUTHORIZED, NOT_FOUND, COMMAND_NOT_ALLOWED, OPTIONAL_FEATURE_NOT_SUPPORTED,
+			AUTHENTICATION_REQUIRED, REQUEST_ENTITY_TOO_LARGE, URI_TOO_LONG, UNSUPPORTED_MEDIA_TYPE_OR_FORMAT, PERMISSION_DENIED, COMMAND_FAILED };
+
+	/**
+	 * Status codes can be returned by a replace command.
+	 */
+	public static final StatusCode[] REPLACE_CODES = { OK, NOT_EXECUTED, ATOMIC_ROLL_BACK_OK, UNAUTHORIZED, FORBIDDEN, NOT_FOUND,
+			COMMAND_NOT_ALLOWED, AUTHENTICATION_REQUIRED, REQUEST_ENTITY_TOO_LARGE, URI_TOO_LONG, UNSUPPORTED_MEDIA_TYPE_OR_FORMAT, ALREADY_EXISTS,
+			DEVICE_FULL, SIZE_MISMATCH, PERMISSION_DENIED, COMMAND_FAILED, ATOMIC_ROLL_BACK_FAILED };
+
+	/**
+	 * Status codes can be returned by a exec command.
+	 */
+	public static final StatusCode[] EXEC_CODES = { NOT_EXECUTED, UNAUTHORIZED, FORBIDDEN, COMMAND_NOT_ALLOWED, OPTIONAL_FEATURE_NOT_SUPPORTED,
+			AUTHENTICATION_REQUIRED, URI_TOO_LONG, DEVICE_FULL, PERMISSION_DENIED, COMMAND_FAILED, DATA_STORE_FAILURE };
+
+	private final int code;
+	private final String description;
 
 	private StatusCode(final int code, final String description) {
 		this.code = code;
@@ -84,47 +126,5 @@ public enum StatusCode implements Status {
 		}
 		return null;
 	}
-
-	/**
-	 * Status codes can be returned by an add command.
-	 */
-	public static final StatusCode[] ADD_CODES = { OK, NOT_EXECUTED, ATOMIC_ROLL_BACK_OK, UNAUTHORIZED, NOT_FOUND, COMMAND_NOT_ALLOWED,
-			AUTHENTICATION_REQUIRED, REQUEST_ENTITY_TOO_LARGE, URI_TOO_LONG, UNSUPPORTED_MEDIA_TYPE_OR_FORMAT, ALREADY_EXISTS, DEVICE_FULL,
-			SIZE_MISMATCH, PERMISSION_DENIED, COMMAND_FAILED, ATOMIC_ROLL_BACK_FAILED };
-
-	/**
-	 * Status codes can be returned by a copy command.
-	 */
-	public static final StatusCode[] COPY_CODES = { OK, NOT_EXECUTED, ATOMIC_ROLL_BACK_OK, UNAUTHORIZED, FORBIDDEN, COMMAND_NOT_ALLOWED,
-			OPTIONAL_FEATURE_NOT_SUPPORTED, AUTHENTICATION_REQUIRED, URI_TOO_LONG, ALREADY_EXISTS, DEVICE_FULL, PERMISSION_DENIED, COMMAND_FAILED,
-			DATA_STORE_FAILURE, ATOMIC_ROLL_BACK_FAILED };
-
-	/**
-	 * Status codes can be returned by a delete command.
-	 */
-	public static final StatusCode[] DELETE_CODES = { OK, NOT_EXECUTED, ATOMIC_ROLL_BACK_OK, UNAUTHORIZED, FORBIDDEN, NOT_FOUND, COMMAND_NOT_ALLOWED,
-			AUTHENTICATION_REQUIRED, URI_TOO_LONG, PERMISSION_DENIED, ATOMIC_ROLL_BACK_FAILED };
-
-	/**
-	 * Status codes can be returned by a get command.
-	 */
-	public static final StatusCode[] GET_CODES = { OK, NOT_EXECUTED, UNAUTHORIZED, NOT_FOUND, COMMAND_NOT_ALLOWED, OPTIONAL_FEATURE_NOT_SUPPORTED,
-			AUTHENTICATION_REQUIRED, REQUEST_ENTITY_TOO_LARGE, URI_TOO_LONG, UNSUPPORTED_MEDIA_TYPE_OR_FORMAT, PERMISSION_DENIED, COMMAND_FAILED };
-
-	/**
-	 * Status codes can be returned by a replace command.
-	 */
-	public static final StatusCode[] REPLACE_CODES = { OK, NOT_EXECUTED, ATOMIC_ROLL_BACK_OK, UNAUTHORIZED, FORBIDDEN, NOT_FOUND,
-			COMMAND_NOT_ALLOWED, AUTHENTICATION_REQUIRED, REQUEST_ENTITY_TOO_LARGE, URI_TOO_LONG, UNSUPPORTED_MEDIA_TYPE_OR_FORMAT, ALREADY_EXISTS,
-			DEVICE_FULL, SIZE_MISMATCH, PERMISSION_DENIED, COMMAND_FAILED, ATOMIC_ROLL_BACK_FAILED };
-
-	/**
-	 * Status codes can be returned by a exec command.
-	 */
-	public static final StatusCode[] EXEC_CODES = { NOT_EXECUTED, UNAUTHORIZED, FORBIDDEN, COMMAND_NOT_ALLOWED, OPTIONAL_FEATURE_NOT_SUPPORTED,
-			AUTHENTICATION_REQUIRED, URI_TOO_LONG, DEVICE_FULL, PERMISSION_DENIED, COMMAND_FAILED, DATA_STORE_FAILURE };
-
-	private final int code;
-	private final String description;
 
 }

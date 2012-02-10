@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011 Sierra Wireless and others.
+ * Copyright (c) 2012 Sierra Wireless and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -15,6 +15,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 final class DMSessionIDGenerator {
+
+	private static final int SESSION_ID_MIN = 1;
+	private static final int SESSION_ID_MAX = 9999;
+
+	private final ConcurrentMap<ServerClientKey, Integer> sessionID;
 
 	public DMSessionIDGenerator() {
 		this.sessionID = new ConcurrentHashMap<DMSessionIDGenerator.ServerClientKey, Integer>();
@@ -42,12 +47,10 @@ final class DMSessionIDGenerator {
 		return nextSessionID;
 	}
 
-	private final ConcurrentMap<ServerClientKey, Integer> sessionID;
-
-	private static final int SESSION_ID_MIN = 1;
-	private static final int SESSION_ID_MAX = 9999;
-
 	private static final class ServerClientKey {
+
+		private final URI server;
+		private final URI client;
 
 		public ServerClientKey(final URI server, final URI client) {
 			this.server = server;
@@ -72,9 +75,6 @@ final class DMSessionIDGenerator {
 				return false;
 			}
 		}
-
-		private final URI server;
-		private final URI client;
 
 	}
 

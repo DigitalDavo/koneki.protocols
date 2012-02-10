@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011 Sierra Wireless and others.
+ * Copyright (c) 2012 Sierra Wireless and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -18,6 +18,11 @@ import java.util.Map;
 import java.util.Queue;
 
 final class DMStatusManager {
+
+	private final Map<CommandNode, Map<String, ItemsNode>> itemsNodes;
+	private final Queue<CommandNode> commandNodes;
+	private final Map<CommandNode, Queue<String>> statusCodeNodes;
+	private final Map<CommandNode, Boolean> isUnique;
 
 	public DMStatusManager() {
 		this.itemsNodes = new HashMap<DMStatusManager.CommandNode, Map<String, ItemsNode>>();
@@ -151,11 +156,6 @@ final class DMStatusManager {
 	private boolean currentIsUnique() {
 		return this.isUnique.get(currentCommandNode());
 	}
-
-	private final Map<CommandNode, Map<String, ItemsNode>> itemsNodes;
-	private final Queue<CommandNode> commandNodes;
-	private final Map<CommandNode, Queue<String>> statusCodeNodes;
-	private final Map<CommandNode, Boolean> isUnique;
 
 	private static final class CommandNode {
 		private final String msgID;

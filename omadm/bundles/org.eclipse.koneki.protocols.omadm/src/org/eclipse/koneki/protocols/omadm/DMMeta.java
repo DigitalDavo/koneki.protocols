@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011 Sierra Wireless and others.
+ * Copyright (c) 2012 Sierra Wireless and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -14,7 +14,17 @@ import java.util.HashMap;
 
 public class DMMeta extends HashMap<Short, String> {
 
-	private static final long serialVersionUID = 1L;
+	public static final short UNKNOWN = 0;
+	public static final short FORMAT = UNKNOWN + 1;
+	public static final short TYPE = FORMAT + 1;
+	public static final short MARK = TYPE + 1;
+	public static final short CUSTOM = UNKNOWN + 1000;
+
+	private static final long serialVersionUID = -5507971288868840747L;
+
+	private static final String DEFAULT_FORMAT = "chr"; //$NON-NLS-1$
+	private static final String DEFAULT_TYPE = "text/plain"; //$NON-NLS-1$
+	private static final String DEFAULT_MARK = "informational"; //$NON-NLS-1$
 
 	public DMMeta() {
 		super();
@@ -47,15 +57,5 @@ public class DMMeta extends HashMap<Short, String> {
 			return UNKNOWN;
 		}
 	}
-
-	public static final short UNKNOWN = 0;
-	public static final short FORMAT = UNKNOWN + 1;
-	public static final short TYPE = FORMAT + 1;
-	public static final short MARK = TYPE + 1;
-	public static final short CUSTOM = UNKNOWN + 1000;
-
-	private static final String DEFAULT_FORMAT = "chr"; //$NON-NLS-1$
-	private static final String DEFAULT_TYPE = "text/plain"; //$NON-NLS-1$
-	private static final String DEFAULT_MARK = "informational"; //$NON-NLS-1$
 
 }

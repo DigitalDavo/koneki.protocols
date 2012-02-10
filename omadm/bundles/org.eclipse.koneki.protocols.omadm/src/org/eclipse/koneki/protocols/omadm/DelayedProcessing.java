@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011 Sierra Wireless and others.
+ * Copyright (c) 2012 Sierra Wireless and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -16,6 +16,9 @@ import java.util.concurrent.Callable;
  * A delayed processing.
  */
 public final class DelayedProcessing implements Status {
+
+	private final StatusCode statusCode;
+	private final Callable<DMGenericAlert> delayedProcessing;
 
 	/**
 	 * Constructs a delayed processing.
@@ -70,8 +73,5 @@ public final class DelayedProcessing implements Status {
 	public String toString() {
 		return this.statusCode.toString();
 	}
-
-	private final StatusCode statusCode;
-	private final Callable<DMGenericAlert> delayedProcessing;
 
 }

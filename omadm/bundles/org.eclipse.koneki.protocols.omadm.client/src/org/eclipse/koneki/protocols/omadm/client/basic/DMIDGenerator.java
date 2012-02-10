@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011 Sierra Wireless and others.
+ * Copyright (c) 2012 Sierra Wireless and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,6 +11,9 @@
 package org.eclipse.koneki.protocols.omadm.client.basic;
 
 final class DMIDGenerator {
+
+	private int msgID;
+	private int cmdID;
 
 	public DMIDGenerator() {
 		this.msgID = 0;
@@ -35,8 +38,5 @@ final class DMIDGenerator {
 		}
 		return this.cmdID;
 	}
-
-	private int msgID;
-	private int cmdID;
 
 }

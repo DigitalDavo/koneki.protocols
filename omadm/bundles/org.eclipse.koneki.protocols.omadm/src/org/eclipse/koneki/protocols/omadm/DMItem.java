@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011 Sierra Wireless and others.
+ * Copyright (c) 2012 Sierra Wireless and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,6 +11,11 @@
 package org.eclipse.koneki.protocols.omadm;
 
 public final class DMItem {
+
+	private final String targetURI;
+	private final String sourceURI;
+	private final DMMeta meta;
+	private final String data;
 
 	public DMItem(final String targetURI, final String sourceURI, final DMMeta meta, final String data) {
 		this.targetURI = targetURI;
@@ -34,10 +39,5 @@ public final class DMItem {
 	public String getData() {
 		return this.data;
 	}
-
-	private final String targetURI;
-	private final String sourceURI;
-	private final DMMeta meta;
-	private final String data;
 
 }

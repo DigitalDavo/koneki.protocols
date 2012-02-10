@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011 Sierra Wireless and others.
+ * Copyright (c) 2012 Sierra Wireless and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -34,6 +34,11 @@ import org.eclipse.koneki.protocols.omadm.client.DMClientException;
  * A basic thread safe DM client over HTTP.
  */
 public abstract class DMBasicClient implements DMClient {
+
+	private final DMSessionExecutor sessionExecutor;
+	private final XMLInputFactory xmlInputFactory;
+	private final XMLOutputFactory xmlOutputFactory;
+	private final DMSessionIDGenerator sessionIDGenerator;
 
 	public DMBasicClient() {
 		this.sessionExecutor = new DMSessionExecutor(Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()));
@@ -93,10 +98,5 @@ public abstract class DMBasicClient implements DMClient {
 
 	protected abstract void sendAndReceiveMessage(final URI server, final String encoding, final DMMessenger messenger) throws IOException,
 			DMClientException;
-
-	private final DMSessionExecutor sessionExecutor;
-	private final XMLInputFactory xmlInputFactory;
-	private final XMLOutputFactory xmlOutputFactory;
-	private final DMSessionIDGenerator sessionIDGenerator;
 
 }
