@@ -9,7 +9,7 @@
 		<module>omadm</module>
 	</modules>
 	<properties>
-		<tycho-version>0.13.0</tycho-version>
+		<tycho-version>0.14.0</tycho-version>
 		<tycho-groupid>org.eclipse.tycho</tycho-groupid>
 		<download-publish-path>/home/data/httpd/download.eclipse.org/koneki/updates-nightly/protocols</download-publish-path>
 	</properties>
