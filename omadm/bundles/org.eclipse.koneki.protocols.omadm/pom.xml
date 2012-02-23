@@ -20,6 +20,6 @@
   </parent>
   <groupId>org.eclipse.koneki.protocols.omadm</groupId>
   <artifactId>org.eclipse.koneki.protocols.omadm</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.8.0-SNAPSHOT</version>
   <packaging>eclipse-plugin</packaging>
 </project>

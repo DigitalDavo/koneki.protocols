@@ -2,7 +2,7 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: %Bundle-Name
 Bundle-SymbolicName: org.eclipse.koneki.protocols.omadm
-Bundle-Version: 0.1.0.qualifier
+Bundle-Version: 0.8.0.qualifier
 Bundle-Vendor: %Bundle-Vendor
 Bundle-RequiredExecutionEnvironment: JavaSE-1.6
-Export-Package: org.eclipse.koneki.protocols.omadm;version="0.1.0"
+Export-Package: org.eclipse.koneki.protocols.omadm;version="0.8.0"

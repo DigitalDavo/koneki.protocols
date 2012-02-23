@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <site>
-   <feature url="features/org.eclipse.koneki.protocols.omadm_0.1.0.qualifier.jar" id="org.eclipse.koneki.protocols.omadm" version="0.1.0.qualifier">
+   <feature url="features/org.eclipse.koneki.protocols.omadm_0.8.0.qualifier.jar" id="org.eclipse.koneki.protocols.omadm" version="0.8.0.qualifier">
       <category name="protocols"/>
    </feature>
    <category-def name="protocols" label="Koneki - Protocols (Incubator)"/>
