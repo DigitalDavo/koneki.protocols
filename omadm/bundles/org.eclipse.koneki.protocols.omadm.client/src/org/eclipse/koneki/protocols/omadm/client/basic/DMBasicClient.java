@@ -24,6 +24,7 @@ import javax.xml.stream.XMLStreamReader;
 import javax.xml.stream.XMLStreamWriter;
 
 import org.eclipse.koneki.protocols.omadm.CommandHandler;
+import org.eclipse.koneki.protocols.omadm.DMAuthentication;
 import org.eclipse.koneki.protocols.omadm.DMGenericAlert;
 import org.eclipse.koneki.protocols.omadm.DMNode;
 import org.eclipse.koneki.protocols.omadm.ProtocolListener;
@@ -49,23 +50,24 @@ public abstract class DMBasicClient implements DMClient {
 
 	@Override
 	public void initiateManagementSession(final URI server, final URI client, final DMNode[] devInfoNodes, final CommandHandler commandHandler) {
-		initiateManagementSession(server, "", client, devInfoNodes, commandHandler, new ProtocolListener[] {}, new DMGenericAlert[] {}); //$NON-NLS-1$
+		initiateManagementSession(server, new DMAuthentication(), client, devInfoNodes, commandHandler, new ProtocolListener[] {},
+				new DMGenericAlert[] {}); //$NON-NLS-1$
 	}
 
 	@Override
 	public void initiateManagementSession(final URI server, final URI client, final DMNode[] devInfoNodes, final CommandHandler commandHandler,
 			final ProtocolListener[] protocolLinsteners) {
-		initiateManagementSession(server, "", client, devInfoNodes, commandHandler, protocolLinsteners, new DMGenericAlert[] {}); //$NON-NLS-1$
+		initiateManagementSession(server, new DMAuthentication(), client, devInfoNodes, commandHandler, protocolLinsteners, new DMGenericAlert[] {}); //$NON-NLS-1$
 	}
 
 	@Override
 	public void initiateManagementSession(final URI server, final URI client, final DMNode[] devInfoNodes, final CommandHandler commandHandler,
 			final DMGenericAlert[] genericAlerts) {
-		initiateManagementSession(server, "", client, devInfoNodes, commandHandler, new ProtocolListener[] {}, genericAlerts); //$NON-NLS-1$
+		initiateManagementSession(server, new DMAuthentication(), client, devInfoNodes, commandHandler, new ProtocolListener[] {}, genericAlerts); //$NON-NLS-1$
 	}
 
 	@Override
-	public void initiateManagementSession(final URI server, final String userAuth, final URI client, final DMNode[] devInfoNodes,
+	public void initiateManagementSession(final URI server, final DMAuthentication userAuth, final URI client, final DMNode[] devInfoNodes,
 			final CommandHandler commandHandler, final ProtocolListener[] protocolLinsteners, final DMGenericAlert[] genericAlerts) {
 		if (server == null || client == null || devInfoNodes == null || commandHandler == null || protocolLinsteners == null || genericAlerts == null) {
 			throw new NullPointerException();

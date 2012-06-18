@@ -29,6 +29,7 @@ import javax.xml.stream.events.XMLEvent;
 import org.apache.commons.io.input.TeeInputStream;
 import org.apache.commons.io.output.TeeOutputStream;
 import org.eclipse.koneki.protocols.omadm.CommandHandler;
+import org.eclipse.koneki.protocols.omadm.DMAuthentication;
 import org.eclipse.koneki.protocols.omadm.DMGenericAlert;
 import org.eclipse.koneki.protocols.omadm.DMItem;
 import org.eclipse.koneki.protocols.omadm.DMMeta;
@@ -73,12 +74,12 @@ final class DMBasicSession implements Runnable {
 	private boolean isSetupPhaseFired;
 	private boolean isManagementPhaseFired;
 	private String currentServerMsgID;
-	private final String userAuth;
+	private final DMAuthentication authentication;
 
-	public DMBasicSession(final DMBasicClient dmClient, final URI server, final String userAuth, final URI client, final String sessionId,
+	public DMBasicSession(final DMBasicClient dmClient, final URI server, final DMAuthentication userAuth, final URI client, final String sessionId,
 			final DMNode[] devInfoNodes, final CommandHandler commandHandler, final ProtocolListener[] protocolLinsteners,
 			final DMGenericAlert[] genericAlerts) {
-		this.userAuth = userAuth;
+		this.authentication = userAuth;
 		this.dmClient = dmClient;
 		this.server = server;
 		this.client = client;
@@ -166,6 +167,40 @@ final class DMBasicSession implements Runnable {
 		});
 	}
 
+	private void writeAuthentication(final XMLStreamWriter writer) throws XMLStreamException {
+		if (!(null == authentication.getAuthentication())) {
+
+			/*
+			 * Add basic authentication
+			 */
+			writer.writeStartElement("Cred"); //$NON-NLS-1$
+			{
+				writer.writeStartElement("Meta"); //$NON-NLS-1$
+				{
+					writer.writeStartElement("Format"); //$NON-NLS-1$
+					writer.writeAttribute("xmlns", "syncml:metinf"); //$NON-NLS-1$ //$NON-NLS-2$
+					writer.writeCharacters("b64"); //$NON-NLS-1$
+					writer.writeEndElement();
+
+					writer.writeStartElement("Type"); //$NON-NLS-1$
+					writer.writeAttribute("xmlns", "syncml:metinf"); //$NON-NLS-1$ //$NON-NLS-2$
+					writer.writeCharacters("syncml:auth-basic"); //$NON-NLS-1$
+					writer.writeEndElement();
+				}
+				writer.writeEndElement();
+
+				writer.writeStartElement("Data"); //$NON-NLS-1$
+				writer.writeCharacters(new String(authentication.getAuthentication()));
+				writer.writeEndElement();
+
+			}
+			writer.writeEndElement();
+			/*
+			 * End authentication
+			 */
+		}
+	}
+
 	private void writeMessage(final OutputStream out) throws XMLStreamException {
 		final XMLStreamWriter writer = this.dmClient.createXMLStreamWriter(out, ENCODING);
 		writer.writeStartDocument(ENCODING, "1.0"); //$NON-NLS-1$
@@ -203,34 +238,7 @@ final class DMBasicSession implements Runnable {
 					}
 					writer.writeEndElement();
 
-					/*
-					 * Add basic authentication
-					 */
-					writer.writeStartElement("Cred"); //$NON-NLS-1$
-					{
-						writer.writeStartElement("Meta"); //$NON-NLS-1$
-						{
-							writer.writeStartElement("Format"); //$NON-NLS-1$
-							writer.writeAttribute("xmlns", "syncml:metinf"); //$NON-NLS-1$ //$NON-NLS-2$
-							writer.writeCharacters("b64"); //$NON-NLS-1$
-							writer.writeEndElement();
-
-							writer.writeStartElement("Type"); //$NON-NLS-1$
-							writer.writeAttribute("xmlns", "syncml:metinf"); //$NON-NLS-1$ //$NON-NLS-2$
-							writer.writeCharacters("syncml:auth-basic"); //$NON-NLS-1$
-							writer.writeEndElement();
-						}
-						writer.writeEndElement();
-
-						writer.writeStartElement("Data"); //$NON-NLS-1$
-						writer.writeCharacters(userAuth);
-						writer.writeEndElement();
-
-					}
-					writer.writeEndElement();
-					/*
-					 * End authentication
-					 */
+					writeAuthentication(writer);
 				}
 				writer.writeEndElement();
 				writer.writeStartElement("SyncBody"); //$NON-NLS-1$
@@ -901,10 +909,10 @@ final class DMBasicSession implements Runnable {
 		if (status.getDelayedProcessing() != null) {
 			this.dmClient.execute(this.client, new Runnable() {
 
-				@Override
+				// @Override
 				public void run() {
 					try {
-						dmClient.initiateManagementSession(server, "", client, devInfoNodes, commandHandler, protocolLinsteners, //$NON-NLS-1$
+						dmClient.initiateManagementSession(server, authentication, client, devInfoNodes, commandHandler, protocolLinsteners, //$NON-NLS-1$
 								new DMGenericAlert[] { status.getDelayedProcessing().call() });
 					} catch (final Exception e) {
 						Activator.logError("Error while initializing management session", e); //$NON-NLS-1$

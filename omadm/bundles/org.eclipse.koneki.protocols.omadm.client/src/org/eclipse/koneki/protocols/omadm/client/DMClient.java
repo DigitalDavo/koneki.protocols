@@ -13,6 +13,7 @@ package org.eclipse.koneki.protocols.omadm.client;
 import java.net.URI;
 
 import org.eclipse.koneki.protocols.omadm.CommandHandler;
+import org.eclipse.koneki.protocols.omadm.DMAuthentication;
 import org.eclipse.koneki.protocols.omadm.DMGenericAlert;
 import org.eclipse.koneki.protocols.omadm.DMNode;
 import org.eclipse.koneki.protocols.omadm.ProtocolListener;
@@ -97,7 +98,7 @@ public interface DMClient {
 	 *             if {@code server}, {@code client}, {@code devInfoNodes}, {@code commandHandler}, {@code protocolLinsteners} or
 	 *             {@code genericAlerts} are {@code null}
 	 */
-	void initiateManagementSession(final URI server, final String userAuth, final URI client, final DMNode[] devInfoNodes,
+	void initiateManagementSession(final URI server, final DMAuthentication userAuth, final URI client, final DMNode[] devInfoNodes,
 			final CommandHandler commandHandler, final ProtocolListener[] protocolLinsteners, final DMGenericAlert[] genericAlerts);
 
 }
