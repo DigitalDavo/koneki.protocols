@@ -17,6 +17,8 @@ import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -26,6 +28,7 @@ import javax.xml.stream.XMLStreamReader;
 import javax.xml.stream.XMLStreamWriter;
 import javax.xml.stream.events.XMLEvent;
 
+import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.io.input.TeeInputStream;
 import org.apache.commons.io.output.TeeOutputStream;
 import org.eclipse.koneki.protocols.omadm.CommandHandler;
@@ -75,6 +78,7 @@ final class DMBasicSession implements Runnable {
 	private boolean isManagementPhaseFired;
 	private String currentServerMsgID;
 	private final DMAuthentication authentication;
+	private String nextNonce;
 
 	public DMBasicSession(final DMBasicClient dmClient, final URI server, final DMAuthentication userAuth, final URI client, final String sessionId,
 			final DMNode[] devInfoNodes, final CommandHandler commandHandler, final ProtocolListener[] protocolLinsteners,
@@ -91,6 +95,7 @@ final class DMBasicSession implements Runnable {
 		this.idGenerator = new DMIDGenerator();
 		this.statusManager = new DMStatusManager();
 		this.commandSends = new HashMap<String, Object[]>();
+		nextNonce = "";
 	}
 
 	@Override
@@ -168,8 +173,10 @@ final class DMBasicSession implements Runnable {
 	}
 
 	private void writeAuthentication(final XMLStreamWriter writer) throws XMLStreamException {
-		if (!(null == authentication.getAuthentication())) {
+		// if (!(null == authentication.getAuthentication())) {
 
+		switch (authentication.getAuthenticationType()) {
+		case BASIC:
 			/*
 			 * Add basic authentication
 			 */
@@ -190,7 +197,14 @@ final class DMBasicSession implements Runnable {
 				writer.writeEndElement();
 
 				writer.writeStartElement("Data"); //$NON-NLS-1$
-				writer.writeCharacters(new String(authentication.getAuthentication()));
+
+				/*
+				 * Create a Base64 code with the user name and user password values
+				 */
+				String userAuth = authentication.getUser() + ":" + authentication.getPassword(); //$NON-NLS-1$ 
+				byte[] B64Auth = Base64.encodeBase64(userAuth.getBytes());
+
+				writer.writeCharacters(new String(B64Auth));
 				writer.writeEndElement();
 
 			}
@@ -198,7 +212,80 @@ final class DMBasicSession implements Runnable {
 			/*
 			 * End authentication
 			 */
+			break;
+		/*
+		 * Add md5 authentication
+		 */
+		case MD5:
+			writer.writeStartElement("Cred"); //$NON-NLS-1$
+			{
+				writer.writeStartElement("Meta"); //$NON-NLS-1$
+				{
+					writer.writeStartElement("Format"); //$NON-NLS-1$
+					writer.writeAttribute("xmlns", "syncml:metinf"); //$NON-NLS-1$ //$NON-NLS-2$
+					writer.writeCharacters("b64"); //$NON-NLS-1$
+					writer.writeEndElement();
+
+					writer.writeStartElement("Type"); //$NON-NLS-1$
+					writer.writeAttribute("xmlns", "syncml:metinf"); //$NON-NLS-1$ //$NON-NLS-2$
+					writer.writeCharacters("syncml:auth-md5"); //$NON-NLS-1$
+					writer.writeEndElement();
+				}
+				writer.writeEndElement();
+
+				writer.writeStartElement("Data"); //$NON-NLS-1$
+
+				/*
+				 * Create a Base64 code with the MD5 of the user name and user password values
+				 */
+				//
+				// try {
+				// MessageDigest m = MessageDigest.getInstance("MD5");
+				// m.update(userAuth.getBytes(), 0, userAuth.length());
+				// byte[] B64Auth = Base64.encodeBase64(m.digest());
+				writer.writeCharacters(computeMd5Authentication());
+
+				// } catch (NoSuchAlgorithmException e) {
+				// // TODO Auto-generated catch block
+				//					Activator.logError("There was an error during the md5 authentication", e); //$NON-NLS-1$
+				// }
+
+				writer.writeEndElement();
+
+			}
+			writer.writeEndElement();
+			/*
+			 * End authentication
+			 */
+			break;
 		}
+	}
+
+	private String computeMd5Authentication() {
+
+		String authValue = "";
+
+		try {
+			String userAuth = authentication.getUser() + ":" + authentication.getPassword(); //$NON-NLS-1$
+			MessageDigest m = MessageDigest.getInstance("MD5");
+
+			byte[] md5User = m.digest(userAuth.getBytes());
+
+			byte[] B64User = Base64.encodeBase64(md5User);
+
+			String userNonce = new String(B64User) + ":" + new String(Base64.decodeBase64(nextNonce.getBytes()));
+
+			byte[] md5Nonce = m.digest(userNonce.getBytes());
+
+			byte[] B64Nonce = Base64.encodeBase64(md5Nonce);
+
+			authValue = new String(B64Nonce);
+
+		} catch (NoSuchAlgorithmException e) {
+			Activator.logError("There was an error during the md5 authentication", e); //$NON-NLS-1$
+		}
+
+		return authValue;
 	}
 
 	private void writeMessage(final OutputStream out) throws XMLStreamException {
@@ -228,12 +315,17 @@ final class DMBasicSession implements Runnable {
 						writer.writeStartElement("LocURI"); //$NON-NLS-1$
 						writer.writeCharacters(this.server.toString());
 						writer.writeEndElement();
+
 					}
 					writer.writeEndElement();
 					writer.writeStartElement("Source"); //$NON-NLS-1$
 					{
 						writer.writeStartElement("LocURI"); //$NON-NLS-1$
 						writer.writeCharacters(this.client.toString());
+						writer.writeEndElement();
+
+						writer.writeStartElement("LocName"); //$NON-NLS-1$
+						writer.writeCharacters(authentication.getUser());
 						writer.writeEndElement();
 					}
 					writer.writeEndElement();

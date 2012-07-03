@@ -15,20 +15,41 @@ package org.eclipse.koneki.protocols.omadm;
  */
 public class DMAuthentication {
 
-	private byte[] basicAuthentication;
+	private AuthenticationType authenticationType;
+
+	private String userName;
+	private String password;
 
 	public DMAuthentication() {
-		basicAuthentication = null;
+		this.authenticationType = AuthenticationType.NONE;
+		this.userName = "";
+		this.password = "";
 	}
 
-	public DMAuthentication(final byte[] basicAuthentication) {
-		this.basicAuthentication = basicAuthentication;
+	public DMAuthentication(final AuthenticationType authenticationType, final String userName, final String password) {
+		this.authenticationType = authenticationType;
+		this.userName = userName;
+		this.password = password;
 	}
 
 	/**
-	 * @return the basicAuthentication
+	 * @return the authenticationType
 	 */
-	public byte[] getAuthentication() {
-		return basicAuthentication;
+	public AuthenticationType getAuthenticationType() {
+		return authenticationType;
+	}
+
+	/**
+	 * @return the user
+	 */
+	public String getUser() {
+		return userName;
+	}
+
+	/**
+	 * @return the password
+	 */
+	public String getPassword() {
+		return password;
 	}
 }
