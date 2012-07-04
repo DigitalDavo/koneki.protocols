@@ -10,6 +10,7 @@
  *******************************************************************************/
 package org.eclipse.koneki.protocols.omadm.client.basic;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -31,6 +32,7 @@ import javax.xml.stream.events.XMLEvent;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.io.input.TeeInputStream;
 import org.apache.commons.io.output.TeeOutputStream;
+import org.eclipse.koneki.protocols.omadm.AuthenticationType;
 import org.eclipse.koneki.protocols.omadm.CommandHandler;
 import org.eclipse.koneki.protocols.omadm.DMAuthentication;
 import org.eclipse.koneki.protocols.omadm.DMGenericAlert;
@@ -79,6 +81,7 @@ final class DMBasicSession implements Runnable {
 	private String currentServerMsgID;
 	private final DMAuthentication authentication;
 	private String nextNonce;
+	private boolean md5SessionContinue;
 
 	public DMBasicSession(final DMBasicClient dmClient, final URI server, final DMAuthentication userAuth, final URI client, final String sessionId,
 			final DMNode[] devInfoNodes, final CommandHandler commandHandler, final ProtocolListener[] protocolLinsteners,
@@ -108,7 +111,7 @@ final class DMBasicSession implements Runnable {
 			this.isManagementPhaseFired = false;
 			do {
 				sendPackageAndReceivePackage();
-			} while (this.isSessionContinue);
+			} while (this.isSessionContinue || this.md5SessionContinue);
 			fireSessionEnd();
 		} catch (final IOException e) {
 			fireSessionEnd(e);
@@ -151,8 +154,18 @@ final class DMBasicSession implements Runnable {
 			public void readMessage(final InputStream in) throws DMClientException {
 				try {
 					if (DMBasicSession.this.protocolLinsteners.length != 0) {
+
 						final ByteArrayOutputStream message = new ByteArrayOutputStream();
+
 						DMBasicSession.this.readMessage(new TeeInputStream(in, message));
+
+						/*
+						 * Get the next nonce value is not secure, so the next nonce is searched into a copy of the inputStream
+						 */
+						if (authentication.getAuthenticationType() == AuthenticationType.MD5) {
+							DMBasicSession.this.readNextNonce(new ByteArrayInputStream(message.toByteArray()));
+						}
+
 						DMBasicSession.this.fireNewServerPackage(message.toString(ENCODING));
 					} else {
 						DMBasicSession.this.readMessage(in);
@@ -163,6 +176,13 @@ final class DMBasicSession implements Runnable {
 					if (!DMBasicSession.this.isSessionContinue) {
 						DMBasicSession.this.fireManagementPhaseEnd();
 					}
+
+					try {
+						in.close();
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+					}
+
 				} catch (final XMLStreamException e) {
 					throw new DMClientException(e);
 				} catch (final UnsupportedEncodingException e) {
@@ -173,7 +193,6 @@ final class DMBasicSession implements Runnable {
 	}
 
 	private void writeAuthentication(final XMLStreamWriter writer) throws XMLStreamException {
-		// if (!(null == authentication.getAuthentication())) {
 
 		switch (authentication.getAuthenticationType()) {
 		case BASIC:
@@ -235,20 +254,7 @@ final class DMBasicSession implements Runnable {
 
 				writer.writeStartElement("Data"); //$NON-NLS-1$
 
-				/*
-				 * Create a Base64 code with the MD5 of the user name and user password values
-				 */
-				//
-				// try {
-				// MessageDigest m = MessageDigest.getInstance("MD5");
-				// m.update(userAuth.getBytes(), 0, userAuth.length());
-				// byte[] B64Auth = Base64.encodeBase64(m.digest());
 				writer.writeCharacters(computeMd5Authentication());
-
-				// } catch (NoSuchAlgorithmException e) {
-				// // TODO Auto-generated catch block
-				//					Activator.logError("There was an error during the md5 authentication", e); //$NON-NLS-1$
-				// }
 
 				writer.writeEndElement();
 
@@ -266,6 +272,8 @@ final class DMBasicSession implements Runnable {
 		String authValue = "";
 
 		try {
+			// TODO Add if nextNonce != ""
+
 			String userAuth = authentication.getUser() + ":" + authentication.getPassword(); //$NON-NLS-1$
 			MessageDigest m = MessageDigest.getInstance("MD5");
 
@@ -284,6 +292,8 @@ final class DMBasicSession implements Runnable {
 		} catch (NoSuchAlgorithmException e) {
 			Activator.logError("There was an error during the md5 authentication", e); //$NON-NLS-1$
 		}
+
+		nextNonce = "";
 
 		return authValue;
 	}
@@ -627,7 +637,11 @@ final class DMBasicSession implements Runnable {
 
 		});
 
+		reader.next();
+
+		String test = reader.getLocalName();
 		jumpToStartTag(reader, "SyncHdr"); //$NON-NLS-1$
+		test = reader.getLocalName();
 
 		readSyncHdr(reader);
 		reader.nextTag();
@@ -639,7 +653,10 @@ final class DMBasicSession implements Runnable {
 	}
 
 	private void readSyncHdr(final XMLStreamReader reader) throws XMLStreamException {
+		String test = reader.getLocalName();
 		jumpToStartTag(reader, "MsgID"); //$NON-NLS-1$
+
+		// test = reader.getLocalName();
 
 		this.currentServerMsgID = reader.getElementText();
 
@@ -716,9 +733,6 @@ final class DMBasicSession implements Runnable {
 	}
 
 	private void readAlert(final XMLStreamReader reader) throws XMLStreamException {
-		/*
-		 * TODO : Manage Alert commands
-		 */
 		reader.nextTag();
 		// CmdID
 		final String cmdID = reader.getElementText();
@@ -729,18 +743,55 @@ final class DMBasicSession implements Runnable {
 		jumpToEndTag(reader, "Alert"); //$NON-NLS-1$
 	}
 
+	private void readNextNonce(final InputStream in) throws XMLStreamException {
+
+		final XMLStreamReader reader = this.dmClient.createXMLStreamReader(in, ENCODING, new StreamFilter() {
+
+			@Override
+			public boolean accept(final XMLStreamReader reader) {
+				return !reader.isWhiteSpace() && !reader.isStandalone();
+			}
+
+		});
+
+		if (nextNonce.equals("")) {
+			try {
+				jumpToStartTag(reader, "NextNonce");
+				if (reader.getLocalName().equals("NextNonce")) {
+					nextNonce = reader.getElementText();
+				}
+			} catch (Exception e) {
+				/*
+				 * The NextNonce node doesn't exist in the received message
+				 */
+				this.md5SessionContinue = false;
+			}
+		}
+	}
+
 	private void readStatus(final XMLStreamReader reader) throws XMLStreamException {
+		String test;
+		test = reader.getLocalName();
+
 		jumpToStartTag(reader, "CmdRef"); //$NON-NLS-1$
+
+		test = reader.getLocalName();
 
 		// CmdRef
 		final String cmdRef = reader.getElementText();
+
+		test = reader.getLocalName();
+
 		reader.nextTag();
 
 		// Cmd
 		final String cmd = reader.getElementText();
-		jumpToStartTag(reader, "Data"); //$NON-NLS-1$
 
+		// test = reader.getLocalName();
+		jumpToStartTagBefore(reader, "Data", "Status");
 		// Data
+		// test = reader.getLocalName();
+
 		final int data = Integer.parseInt(reader.getElementText());
 		jumpToEndTag(reader, "Status"); //$NON-NLS-1$
 
@@ -749,9 +800,16 @@ final class DMBasicSession implements Runnable {
 			switch (data) {
 			case 212:
 				this.isClientAuthenticated = true;
+				this.md5SessionContinue = false;
 				break;
 			case 407:
 				this.isClientAuthenticated = false;
+				this.md5SessionContinue = false;
+				break;
+			case 401:
+				if (authentication.getAuthenticationType() == AuthenticationType.MD5) {
+					this.md5SessionContinue = true;
+				}
 				break;
 			default:
 				break;
@@ -1207,15 +1265,100 @@ final class DMBasicSession implements Runnable {
 	}
 
 	private static void jumpToStartTag(final XMLStreamReader reader, final String tag) throws XMLStreamException {
-		while (reader.next() != XMLStreamReader.START_ELEMENT || !reader.getLocalName().equals(tag)) {
-			continue;
+
+		while (true) {
+			String s = "";
+
+			// if (!reader.isStartElement())
+			//
+
+			if (reader.hasText())
+				s = reader.getText();
+
+			if (reader.hasName())
+				s = reader.getName().toString();
+
+			if (reader.hasName()) {
+				String s2 = reader.getLocalName();
+				if (reader.getLocalName().equals(tag)) {
+					break;
+				}
+			}
+
+			if (reader.hasNext()) {
+				reader.next();
+			} else {
+				break;
+			}
 		}
+
+		// while (reader.next() != XMLStreamReader.START_ELEMENT && !reader.getLocalName().equals(tag)) {
+		// continue;
+		// }
+	}
+
+	private static void jumpToStartTagBefore(final XMLStreamReader reader, final String startTag, final String endTag) throws XMLStreamException {
+
+		while (true) {
+			String s = "";
+
+			// if (!reader.isStartElement())
+			// s = reader.getLocalName();
+
+			if (reader.hasText())
+				s = reader.getText();
+
+			if (reader.hasName())
+				s = reader.getName().toString();
+
+			if (reader.hasName()) {
+				if (reader.getLocalName().equals(startTag) || reader.getLocalName().equals(endTag)) {
+					break;
+				}
+			}
+
+			if (reader.hasNext()) {
+				reader.next();
+			} else {
+				break;
+			}
+		}
+
+		// while (reader.next() != XMLStreamReader.END_ELEMENT && !reader.getLocalName().equals(tag)) {
+		// continue;
+		// }
 	}
 
 	private static void jumpToEndTag(final XMLStreamReader reader, final String tag) throws XMLStreamException {
-		while (reader.next() != XMLStreamReader.END_ELEMENT || !reader.getLocalName().equals(tag)) {
-			continue;
+
+		while (true) {
+			String s = "";
+
+			// if (!reader.isStartElement())
+			// s = reader.getLocalName();
+
+			if (reader.hasText())
+				s = reader.getText();
+
+			if (reader.hasName())
+				s = reader.getName().toString();
+
+			if (reader.hasName()) {
+				if (reader.getLocalName().equals(tag)) {
+					break;
+				}
+			}
+
+			if (reader.hasNext()) {
+				reader.next();
+			} else {
+				break;
+			}
 		}
+
+		// while (reader.next() != XMLStreamReader.END_ELEMENT && !reader.getLocalName().equals(tag)) {
+		// continue;
+		// }
 	}
 
 	private void fireSessionBegin(final String sessionID) {
