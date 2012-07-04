@@ -195,77 +195,59 @@ final class DMBasicSession implements Runnable {
 
 	private void writeAuthentication(final XMLStreamWriter writer) throws XMLStreamException {
 
+		writer.writeStartElement("Cred"); //$NON-NLS-1$
+
+		writer.writeStartElement("Meta"); //$NON-NLS-1$
+
+		writer.writeStartElement("Format"); //$NON-NLS-1$
+		writer.writeAttribute("xmlns", "syncml:metinf"); //$NON-NLS-1$ //$NON-NLS-2$
+		writer.writeCharacters("b64"); //$NON-NLS-1$
+		writer.writeEndElement();
+
+		writer.writeStartElement("Type"); //$NON-NLS-1$
+		writer.writeAttribute("xmlns", "syncml:metinf"); //$NON-NLS-1$ //$NON-NLS-2$
+
 		switch (authentication.getAuthenticationType()) {
+		/*
+		 * Add basic authentication
+		 */
 		case BASIC:
-			/*
-			 * Add basic authentication
-			 */
-			writer.writeStartElement("Cred"); //$NON-NLS-1$
-			{
-				writer.writeStartElement("Meta"); //$NON-NLS-1$
-				{
-					writer.writeStartElement("Format"); //$NON-NLS-1$
-					writer.writeAttribute("xmlns", "syncml:metinf"); //$NON-NLS-1$ //$NON-NLS-2$
-					writer.writeCharacters("b64"); //$NON-NLS-1$
-					writer.writeEndElement();
-
-					writer.writeStartElement("Type"); //$NON-NLS-1$
-					writer.writeAttribute("xmlns", "syncml:metinf"); //$NON-NLS-1$ //$NON-NLS-2$
-					writer.writeCharacters("syncml:auth-basic"); //$NON-NLS-1$
-					writer.writeEndElement();
-				}
-				writer.writeEndElement();
-
-				writer.writeStartElement("Data"); //$NON-NLS-1$
-
-				/*
-				 * Create a Base64 code with the user name and user password values
-				 */
-				String userAuth = authentication.getUser() + ":" + authentication.getPassword(); //$NON-NLS-1$ 
-				byte[] B64Auth = Base64.encodeBase64(userAuth.getBytes());
-
-				writer.writeCharacters(new String(B64Auth));
-				writer.writeEndElement();
-
-			}
+			writer.writeCharacters("syncml:auth-basic"); //$NON-NLS-1$
 			writer.writeEndElement();
-			/*
-			 * End authentication
-			 */
+
+			writer.writeEndElement();
+
+			writer.writeStartElement("Data"); //$NON-NLS-1$
+
+			writer.writeCharacters(computeBasicAuthentication());
 			break;
 		/*
 		 * Add md5 authentication
 		 */
 		case MD5:
-			writer.writeStartElement("Cred"); //$NON-NLS-1$
-			{
-				writer.writeStartElement("Meta"); //$NON-NLS-1$
-				{
-					writer.writeStartElement("Format"); //$NON-NLS-1$
-					writer.writeAttribute("xmlns", "syncml:metinf"); //$NON-NLS-1$ //$NON-NLS-2$
-					writer.writeCharacters("b64"); //$NON-NLS-1$
-					writer.writeEndElement();
 
-					writer.writeStartElement("Type"); //$NON-NLS-1$
-					writer.writeAttribute("xmlns", "syncml:metinf"); //$NON-NLS-1$ //$NON-NLS-2$
-					writer.writeCharacters("syncml:auth-md5"); //$NON-NLS-1$
-					writer.writeEndElement();
-				}
-				writer.writeEndElement();
-
-				writer.writeStartElement("Data"); //$NON-NLS-1$
-
-				writer.writeCharacters(computeMd5Authentication());
-
-				writer.writeEndElement();
-
-			}
+			writer.writeCharacters("syncml:auth-md5"); //$NON-NLS-1$
 			writer.writeEndElement();
-			/*
-			 * End authentication
-			 */
+
+			writer.writeEndElement();
+
+			writer.writeStartElement("Data"); //$NON-NLS-1$
+
+			writer.writeCharacters(computeMd5Authentication());
+
 			break;
 		}
+
+		writer.writeEndElement();
+
+		writer.writeEndElement();
+	}
+
+	private String computeBasicAuthentication() {
+		String userAuth = authentication.getUser() + ":" + authentication.getPassword(); //$NON-NLS-1$ 
+		byte[] B64Auth = Base64.encodeBase64(userAuth.getBytes());
+
+		return new String(B64Auth);
 	}
 
 	private String computeMd5Authentication() {
@@ -646,9 +628,7 @@ final class DMBasicSession implements Runnable {
 
 		reader.next();
 
-		// String test = reader.getLocalName();
 		jumpToStartTag(reader, "SyncHdr"); //$NON-NLS-1$
-		// test = reader.getLocalName();
 
 		readSyncHdr(reader);
 		reader.nextTag();
@@ -660,10 +640,7 @@ final class DMBasicSession implements Runnable {
 	}
 
 	private void readSyncHdr(final XMLStreamReader reader) throws XMLStreamException {
-		// String test = reader.getLocalName();
 		jumpToStartTag(reader, "MsgID"); //$NON-NLS-1$
-
-		// test = reader.getLocalName();
 
 		this.currentServerMsgID = reader.getElementText();
 
@@ -777,17 +754,10 @@ final class DMBasicSession implements Runnable {
 	}
 
 	private void readStatus(final XMLStreamReader reader) throws XMLStreamException {
-		// String test;
-		// test = reader.getLocalName();
-
 		jumpToStartTag(reader, "CmdRef"); //$NON-NLS-1$
-
-		// test = reader.getLocalName();
 
 		// CmdRef
 		final String cmdRef = reader.getElementText();
-
-		// test = reader.getLocalName();
 
 		reader.nextTag();
 
@@ -795,7 +765,6 @@ final class DMBasicSession implements Runnable {
 		final String cmd = reader.getElementText();
 
 		jumpToStartTag(reader, "Data"); //$NON-NLS-1$
-		// jumpToStartTagBefore(reader, "Data", "Status");
 
 		final int data = Integer.parseInt(reader.getElementText());
 		jumpToEndTag(reader, "Status"); //$NON-NLS-1$
@@ -1269,11 +1238,16 @@ final class DMBasicSession implements Runnable {
 		}
 	}
 
-	private static void findNode(final XMLStreamReader reader, final String tag) throws XMLStreamException {
+	private static void jumpToStartTag(final XMLStreamReader reader, final String tag) throws XMLStreamException {
+
 		while (true) {
 			if (reader.hasName()) {
-				if (reader.getLocalName().equals(tag)) {
-					break;
+
+				if (reader.isStartElement()) {
+
+					if (reader.getLocalName().equals(tag)) {
+						break;
+					}
 				}
 			}
 
@@ -1285,22 +1259,25 @@ final class DMBasicSession implements Runnable {
 		}
 	}
 
-	private static void jumpToStartTag(final XMLStreamReader reader, final String tag) throws XMLStreamException {
-
-		findNode(reader, tag);
-
-		// while (reader.next() != XMLStreamReader.START_ELEMENT && !reader.getLocalName().equals(tag)) {
-		// continue;
-		// }
-	}
-
 	private static void jumpToEndTag(final XMLStreamReader reader, final String tag) throws XMLStreamException {
 
-		findNode(reader, tag);
+		while (true) {
+			if (reader.hasName()) {
 
-		// while (reader.next() != XMLStreamReader.END_ELEMENT && !reader.getLocalName().equals(tag)) {
-		// continue;
-		// }
+				if (reader.isEndElement()) {
+
+					if (reader.getLocalName().equals(tag)) {
+						break;
+					}
+				}
+			}
+
+			if (reader.hasNext()) {
+				reader.next();
+			} else {
+				break;
+			}
+		}
 	}
 
 	private void fireSessionBegin(final String sessionID) {
