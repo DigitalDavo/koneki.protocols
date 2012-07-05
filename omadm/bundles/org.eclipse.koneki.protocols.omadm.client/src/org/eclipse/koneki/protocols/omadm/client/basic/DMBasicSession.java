@@ -81,7 +81,7 @@ final class DMBasicSession implements Runnable {
 	private String currentServerMsgID;
 	private final DMAuthentication authentication;
 	private String nextNonce;
-	private boolean md5SessionContinue;
+	private boolean isAuthSessionContinue;
 
 	public DMBasicSession(final DMBasicClient dmClient, final URI server, final DMAuthentication userAuth, final URI client, final String sessionId,
 			final DMNode[] devInfoNodes, final CommandHandler commandHandler, final ProtocolListener[] protocolLinsteners,
@@ -111,7 +111,7 @@ final class DMBasicSession implements Runnable {
 			this.isManagementPhaseFired = false;
 			do {
 				sendPackageAndReceivePackage();
-			} while (this.isSessionContinue || this.md5SessionContinue);
+			} while (this.isSessionContinue || this.isAuthSessionContinue);
 			fireSessionEnd();
 		} catch (final IOException e) {
 			fireSessionEnd(e);
@@ -243,6 +243,40 @@ final class DMBasicSession implements Runnable {
 		writer.writeEndElement();
 	}
 
+	private byte[] computeB64OfMd5OfUsernamePasswordPlusNonce() {
+		byte[] userNonce = null;
+
+		try {
+			// build the string username:password
+			String userAuth = authentication.getUser() + ":" + authentication.getPassword(); //$NON-NLS-1$
+
+			MessageDigest m = MessageDigest.getInstance("MD5"); //$NON-NLS-1$
+
+			// md5(username:password)
+			byte[] md5User = m.digest(userAuth.getBytes());
+
+			// b64Encode(md5(username:password))
+			byte[] B64User = Base64.encodeBase64(md5User);
+
+			// decode the nonce sended by the server
+			byte[] decodedNonce = Base64.decodeBase64(nextNonce.getBytes());
+			// byte[] decodedNonce = nextNonce.getBytes();
+
+			ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+			outputStream.write(B64User);
+			outputStream.write(':');
+			outputStream.write(decodedNonce);
+
+			userNonce = outputStream.toByteArray();
+
+		} catch (NoSuchAlgorithmException e) {
+			Activator.logError("There was an error during the md5 authentication", e); //$NON-NLS-1$
+		} catch (IOException e) {
+			// THe ByteArray throwed an exception
+		}
+		return userNonce;
+	}
+
 	private String computeBasicAuthentication() {
 		String userAuth = authentication.getUser() + ":" + authentication.getPassword(); //$NON-NLS-1$ 
 		byte[] B64Auth = Base64.encodeBase64(userAuth.getBytes());
@@ -256,24 +290,14 @@ final class DMBasicSession implements Runnable {
 
 		try {
 
-			// build the string username:password
-			String userAuth = authentication.getUser() + ":" + authentication.getPassword(); //$NON-NLS-1$
-
 			MessageDigest m = MessageDigest.getInstance("MD5"); //$NON-NLS-1$
 
-			// md5(username:password)
-			byte[] md5User = m.digest(userAuth.getBytes());
+			byte[] userNonce = computeB64OfMd5OfUsernamePasswordPlusNonce();
 
-			// b64Encode(md5(username:password))
-			byte[] B64User = Base64.encodeBase64(md5User);
+			// md5(b64Encode(md5(username:password)):b64Decode(nextNonceDecodedFromServer))
+			byte[] md5Nonce = m.digest(userNonce);
 
-			// b64Encode(md5(username:password)):b64Decode(nextNonceFromServer)
-			String userNonce = new String(B64User) + ":" + new String(Base64.decodeBase64(nextNonce.getBytes())); //$NON-NLS-1$
-
-			// md5(b64Encode(md5(username:password)):b64Decode(nextNonceFromServer))
-			byte[] md5Nonce = m.digest(userNonce.getBytes());
-
-			// b64Encode(md5(b64Encode(md5(username:password)):b64Decode(nextNonceFromServer)))
+			// b64Encode(md5(b64Encode(md5(username:password)):b64Decode(nextNonceDecodedFromServer)))
 			byte[] B64Nonce = Base64.encodeBase64(md5Nonce);
 
 			authValue = new String(B64Nonce);
@@ -285,6 +309,44 @@ final class DMBasicSession implements Runnable {
 		nextNonce = ""; //$NON-NLS-1$
 
 		return authValue;
+	}
+
+	private String computeMACAuthentication(final String messageBody) {
+
+		String authFinalValue = ""; //$NON-NLS-1$
+
+		try {
+
+			MessageDigest m = MessageDigest.getInstance("MD5"); //$NON-NLS-1$
+
+			byte[] userNonce = computeB64OfMd5OfUsernamePasswordPlusNonce();
+
+			//
+			byte[] md5Body = m.digest(messageBody.getBytes());
+
+			//
+			byte[] B64Body = Base64.encodeBase64(md5Body);
+
+			ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+			outputStream.write(userNonce);
+			outputStream.write(':');
+			outputStream.write(B64Body);
+
+			byte[] authDigestValue = m.digest(outputStream.toByteArray());
+
+			byte[] authValue = Base64.encodeBase64(authDigestValue);
+
+			authFinalValue = new String(authValue);
+
+		} catch (NoSuchAlgorithmException e) {
+			Activator.logError("There was an error during the md5 authentication", e); //$NON-NLS-1$
+		} catch (IOException e) {
+			// The ByteArray throwed an exception
+		}
+
+		nextNonce = ""; //$NON-NLS-1$
+
+		return authFinalValue;
 	}
 
 	private void writeMessage(final OutputStream out) throws XMLStreamException {
@@ -748,7 +810,7 @@ final class DMBasicSession implements Runnable {
 				/*
 				 * The NextNonce node doesn't exist in the received message
 				 */
-				this.md5SessionContinue = false;
+				this.isAuthSessionContinue = false;
 			}
 		}
 	}
@@ -774,15 +836,19 @@ final class DMBasicSession implements Runnable {
 			switch (data) {
 			case 212:
 				this.isClientAuthenticated = true;
-				this.md5SessionContinue = false;
+				this.isAuthSessionContinue = false;
 				break;
 			case 407:
 				this.isClientAuthenticated = false;
-				this.md5SessionContinue = false;
+				if ((!nextNonce.equals("")) && (authentication.getAuthenticationType() == AuthenticationType.HMAC)) {
+					this.isAuthSessionContinue = true;
+				}
 				break;
 			case 401:
-				if (authentication.getAuthenticationType() == AuthenticationType.MD5) {
-					this.md5SessionContinue = true;
+				this.isClientAuthenticated = false;
+				if (authentication.getAuthenticationType() == AuthenticationType.MD5
+						|| ((!nextNonce.equals("")) && (authentication.getAuthenticationType() == AuthenticationType.HMAC))) {
+					this.isAuthSessionContinue = true;
 				}
 				break;
 			default:
