@@ -82,6 +82,7 @@ final class DMBasicSession implements Runnable {
 	private final DMAuthentication authentication;
 	private String nextNonce;
 	private boolean isAuthSessionContinue;
+	private int hmacMessageNumber;
 
 	public DMBasicSession(final DMBasicClient dmClient, final URI server, final DMAuthentication userAuth, final URI client, final String sessionId,
 			final DMNode[] devInfoNodes, final CommandHandler commandHandler, final ProtocolListener[] protocolLinsteners,
@@ -99,6 +100,7 @@ final class DMBasicSession implements Runnable {
 		this.statusManager = new DMStatusManager();
 		this.commandSends = new HashMap<String, Object[]>();
 		this.nextNonce = ""; //$NON-NLS-1$
+		this.hmacMessageNumber = 0;
 	}
 
 	@Override
@@ -125,6 +127,35 @@ final class DMBasicSession implements Runnable {
 
 	void sendPackageAndReceivePackage() throws IOException, DMClientException {
 		this.dmClient.sendAndReceiveMessage(this.server, ENCODING, new DMMessenger() {
+
+			private String headerAuthentication = "algorithm=MD5, username=\"" + authentication.getUser() + "\",mac=";
+
+			public String getAuthenticationValue(final ByteArrayOutputStream message) throws DMClientException {
+
+				try {
+
+					/*
+					 * TODO <begin : improve>
+					 */
+					/*
+					 * Get the next nonce value is not secure : the method should parse all the message and don't find the next nonce node. So the
+					 * next nonce is searched into a copy of the inputStream
+					 */
+					/*
+					 * TODO Remove the test for the tests
+					 */
+					// if (authentication.getAuthenticationType() == AuthenticationType.HMAC) {
+
+					headerAuthentication += computeMACAuthentication(message.toString(ENCODING));
+					// }
+
+				} catch (final UnsupportedEncodingException e) {
+					throw new DMClientException(e);
+				}
+
+				return headerAuthentication;
+			}
+
 			@Override
 			public void writeMessage(final OutputStream out) throws DMClientException {
 				try {
@@ -178,12 +209,6 @@ final class DMBasicSession implements Runnable {
 						DMBasicSession.this.fireManagementPhaseEnd();
 					}
 
-					// try {
-					// in.close();
-					// } catch (IOException e) {
-					// // Auto-generated catch block
-					// }
-
 				} catch (final XMLStreamException e) {
 					throw new DMClientException(e);
 				} catch (final UnsupportedEncodingException e) {
@@ -195,7 +220,12 @@ final class DMBasicSession implements Runnable {
 
 	private void writeAuthentication(final XMLStreamWriter writer) throws XMLStreamException {
 
-		writer.writeStartElement("Cred"); //$NON-NLS-1$
+		/*
+		 * There are no credentials with HMAC
+		 */
+		if (authentication.getAuthenticationType() != AuthenticationType.HMAC) {
+			writer.writeStartElement("Cred"); //$NON-NLS-1$
+		}
 
 		writer.writeStartElement("Meta"); //$NON-NLS-1$
 
@@ -218,8 +248,9 @@ final class DMBasicSession implements Runnable {
 			writer.writeEndElement();
 
 			writer.writeStartElement("Data"); //$NON-NLS-1$
-
 			writer.writeCharacters(computeBasicAuthentication());
+			writer.writeEndElement();
+
 			break;
 		/*
 		 * Add md5 authentication
@@ -232,16 +263,83 @@ final class DMBasicSession implements Runnable {
 			writer.writeEndElement();
 
 			writer.writeStartElement("Data"); //$NON-NLS-1$
-
 			writer.writeCharacters(computeMd5Authentication());
+			writer.writeEndElement();
+
+			break;
+		/*
+		 * Add hmac authentication
+		 */
+		case HMAC:
+
+			writer.writeCharacters("syncml:auth-MAC"); //$NON-NLS-1$
+			writer.writeEndElement();
+
+			writer.writeEndElement();
+
+			//			writer.writeStartElement("Data"); //$NON-NLS-1$
+			// writer.writeCharacters(computeMd5Authentication());
 
 			break;
 		}
 
-		writer.writeEndElement();
-
-		writer.writeEndElement();
+		/*
+		 * There are no credential with HMAC
+		 */
+		if (authentication.getAuthenticationType() != AuthenticationType.HMAC) {
+			writer.writeEndElement();
+		}
 	}
+
+	// private void writeAuthentication(final XMLStreamWriter writer) throws XMLStreamException {
+	//
+	//		writer.writeStartElement("Cred"); //$NON-NLS-1$
+	//
+	//		writer.writeStartElement("Meta"); //$NON-NLS-1$
+	//
+	//		writer.writeStartElement("Format"); //$NON-NLS-1$
+	//		writer.writeAttribute("xmlns", "syncml:metinf"); //$NON-NLS-1$ //$NON-NLS-2$
+	//		writer.writeCharacters("b64"); //$NON-NLS-1$
+	// writer.writeEndElement();
+	//
+	//		writer.writeStartElement("Type"); //$NON-NLS-1$
+	//		writer.writeAttribute("xmlns", "syncml:metinf"); //$NON-NLS-1$ //$NON-NLS-2$
+	//
+	// switch (authentication.getAuthenticationType()) {
+	// /*
+	// * Add basic authentication
+	// */
+	// case BASIC:
+	//			writer.writeCharacters("syncml:auth-basic"); //$NON-NLS-1$
+	// writer.writeEndElement();
+	//
+	// writer.writeEndElement();
+	//
+	//			writer.writeStartElement("Data"); //$NON-NLS-1$
+	//
+	// writer.writeCharacters(computeBasicAuthentication());
+	// break;
+	// /*
+	// * Add md5 authentication
+	// */
+	// case MD5:
+	//
+	//			writer.writeCharacters("syncml:auth-md5"); //$NON-NLS-1$
+	// writer.writeEndElement();
+	//
+	// writer.writeEndElement();
+	//
+	//			writer.writeStartElement("Data"); //$NON-NLS-1$
+	//
+	// writer.writeCharacters(computeMd5Authentication());
+	//
+	// break;
+	// }
+	//
+	// writer.writeEndElement();
+	//
+	// writer.writeEndElement();
+	// }
 
 	private byte[] computeB64OfMd5OfUsernamePasswordPlusNonce() {
 		byte[] userNonce = null;
@@ -833,6 +931,7 @@ final class DMBasicSession implements Runnable {
 
 		// Performs the status
 		if (cmd.equals("SyncHdr")) { //$NON-NLS-1$
+			this.hmacMessageNumber++;
 			switch (data) {
 			case 212:
 				this.isClientAuthenticated = true;
@@ -842,13 +941,17 @@ final class DMBasicSession implements Runnable {
 				this.isClientAuthenticated = false;
 				if ((!nextNonce.equals("")) && (authentication.getAuthenticationType() == AuthenticationType.HMAC)) {
 					this.isAuthSessionContinue = true;
+				} else {
+					this.isAuthSessionContinue = false;
 				}
 				break;
 			case 401:
 				this.isClientAuthenticated = false;
 				if (authentication.getAuthenticationType() == AuthenticationType.MD5
-						|| ((!nextNonce.equals("")) && (authentication.getAuthenticationType() == AuthenticationType.HMAC))) {
+						|| ((hmacMessageNumber < 2) && (authentication.getAuthenticationType() == AuthenticationType.HMAC))) {
 					this.isAuthSessionContinue = true;
+				} else {
+					this.isAuthSessionContinue = false;
 				}
 				break;
 			default:

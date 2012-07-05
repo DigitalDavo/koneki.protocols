@@ -10,10 +10,12 @@
  *******************************************************************************/
 package org.eclipse.koneki.protocols.omadm.client.http.internal;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URI;
 
+import org.apache.http.Header;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPost;
@@ -25,6 +27,7 @@ import org.apache.http.entity.ContentProducer;
 import org.apache.http.entity.EntityTemplate;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
+import org.apache.http.message.BasicHeader;
 import org.apache.http.util.EntityUtils;
 import org.eclipse.koneki.protocols.omadm.client.DMClientException;
 import org.eclipse.koneki.protocols.omadm.client.basic.DMBasicClient;
@@ -45,18 +48,34 @@ public class DMHttpClient extends DMBasicClient {
 		try {
 			final HttpPost post = new HttpPost(server);
 
+			final ByteArrayOutputStream myByteArray = new ByteArrayOutputStream();
+
+			messenger.writeMessage(myByteArray);
+
 			final EntityTemplate entity = new EntityTemplate(new ContentProducer() {
 
 				@Override
 				public void writeTo(final OutputStream out) throws IOException {
-					try {
-						messenger.writeMessage(out);
-					} catch (final DMClientException e) {
-						throw new IOException(e);
-					}
+					// try {
+					// messenger.writeMessage(out);
+					// } catch (final DMClientException e) {
+					// throw new IOException(e);
+					// }
+
+					out.write(myByteArray.toByteArray());
+
 				}
 
 			});
+
+			/*
+			 * TODO Call this method break the md5 authentication !
+			 */
+			String test = messenger.getAuthenticationValue(myByteArray);
+
+			Header header = new BasicHeader("x-syncml-hmac", test);
+			post.addHeader(header);
+
 			entity.setChunked(false);
 			entity.setContentEncoding(encoding);
 			entity.setContentType("application/vnd.syncml.dm+xml"); //$NON-NLS-1$

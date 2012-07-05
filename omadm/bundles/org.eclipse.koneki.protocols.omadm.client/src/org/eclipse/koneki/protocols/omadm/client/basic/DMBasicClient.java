@@ -10,6 +10,7 @@
  *******************************************************************************/
 package org.eclipse.koneki.protocols.omadm.client.basic;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -95,6 +96,8 @@ public abstract class DMBasicClient implements DMClient {
 		void writeMessage(final OutputStream out) throws DMClientException;
 
 		void readMessage(final InputStream in) throws DMClientException;
+
+		String getAuthenticationValue(final ByteArrayOutputStream out) throws DMClientException;
 
 	}
 
