@@ -216,11 +216,6 @@ final class DMBasicSession implements Runnable {
 
 		writer.writeStartElement("Meta"); //$NON-NLS-1$
 
-		writer.writeStartElement("Format"); //$NON-NLS-1$
-		writer.writeAttribute("xmlns", "syncml:metinf"); //$NON-NLS-1$ //$NON-NLS-2$
-		writer.writeCharacters("b64"); //$NON-NLS-1$
-		writer.writeEndElement();
-
 		writer.writeStartElement("Type"); //$NON-NLS-1$
 		writer.writeAttribute("xmlns", "syncml:metinf"); //$NON-NLS-1$ //$NON-NLS-2$
 
@@ -232,12 +227,15 @@ final class DMBasicSession implements Runnable {
 			writer.writeCharacters("syncml:auth-basic"); //$NON-NLS-1$
 			writer.writeEndElement();
 
+			writer.writeStartElement("Format"); //$NON-NLS-1$
+			writer.writeAttribute("xmlns", "syncml:metinf"); //$NON-NLS-1$ //$NON-NLS-2$
+			writer.writeCharacters("b64"); //$NON-NLS-1$
+			writer.writeEndElement();
+
 			writer.writeEndElement();
 
 			writer.writeStartElement("Data"); //$NON-NLS-1$
 			writer.writeCharacters(computeBasicAuthentication());
-			writer.writeEndElement();
-
 			break;
 		/*
 		 * Add md5 authentication
@@ -247,12 +245,15 @@ final class DMBasicSession implements Runnable {
 			writer.writeCharacters("syncml:auth-md5"); //$NON-NLS-1$
 			writer.writeEndElement();
 
+			writer.writeStartElement("Format"); //$NON-NLS-1$
+			writer.writeAttribute("xmlns", "syncml:metinf"); //$NON-NLS-1$ //$NON-NLS-2$
+			writer.writeCharacters("b64"); //$NON-NLS-1$
+			writer.writeEndElement();
+
 			writer.writeEndElement();
 
 			writer.writeStartElement("Data"); //$NON-NLS-1$
 			writer.writeCharacters(computeMd5Authentication());
-			writer.writeEndElement();
-
 			break;
 		/*
 		 * Add hmac authentication
@@ -262,6 +263,9 @@ final class DMBasicSession implements Runnable {
 			writer.writeCharacters("syncml:auth-MAC"); //$NON-NLS-1$
 			writer.writeEndElement();
 
+			writer.writeStartElement("Format"); //$NON-NLS-1$
+			writer.writeAttribute("xmlns", "syncml:metinf"); //$NON-NLS-1$ //$NON-NLS-2$
+			writer.writeCharacters("b64"); //$NON-NLS-1$
 			writer.writeEndElement();
 
 			break;
@@ -270,6 +274,9 @@ final class DMBasicSession implements Runnable {
 
 			break;
 		}
+
+		writer.writeEndElement();
+
 		/*
 		 * There are no credential with HMAC
 		 */
@@ -531,16 +538,16 @@ final class DMBasicSession implements Runnable {
 							// if (globalFormat == null || globalType == null) {
 							writer.writeStartElement("Meta"); //$NON-NLS-1$
 							{
-								// if (globalFormat == null) {
-								writer.writeStartElement("Format"); //$NON-NLS-1$
-								writer.writeAttribute("xmlns", "syncml:metinf"); //$NON-NLS-1$ //$NON-NLS-2$
-								writer.writeCharacters(results.getFormat());
-								writer.writeEndElement();
-								// }
 								// if (globalType == null) {
 								writer.writeStartElement("Type"); //$NON-NLS-1$
 								writer.writeAttribute("xmlns", "syncml:metinf"); //$NON-NLS-1$ //$NON-NLS-2$
 								writer.writeCharacters(results.getType());
+								writer.writeEndElement();
+								// }
+								// if (globalFormat == null) {
+								writer.writeStartElement("Format"); //$NON-NLS-1$
+								writer.writeAttribute("xmlns", "syncml:metinf"); //$NON-NLS-1$ //$NON-NLS-2$
+								writer.writeCharacters(results.getFormat());
 								writer.writeEndElement();
 								// }
 							}
@@ -661,16 +668,16 @@ final class DMBasicSession implements Runnable {
 				if (sameFormat || sameType) {
 					writer.writeStartElement("Meta"); //$NON-NLS-1$
 					{
-						if (sameFormat) {
-							writer.writeStartElement("Format"); //$NON-NLS-1$
-							writer.writeAttribute("xmlns", "syncml:metinf"); //$NON-NLS-1$ //$NON-NLS-2$
-							writer.writeCharacters(this.devInfoNodes[0].getFormat());
-							writer.writeEndElement();
-						}
 						if (sameType) {
 							writer.writeStartElement("Type"); //$NON-NLS-1$
 							writer.writeAttribute("xmlns", "syncml:metinf"); //$NON-NLS-1$ //$NON-NLS-2$
 							writer.writeCharacters(this.devInfoNodes[0].getType());
+							writer.writeEndElement();
+						}
+						if (sameFormat) {
+							writer.writeStartElement("Format"); //$NON-NLS-1$
+							writer.writeAttribute("xmlns", "syncml:metinf"); //$NON-NLS-1$ //$NON-NLS-2$
+							writer.writeCharacters(this.devInfoNodes[0].getFormat());
 							writer.writeEndElement();
 						}
 					}
@@ -689,16 +696,16 @@ final class DMBasicSession implements Runnable {
 						if (!sameFormat || !sameType) {
 							writer.writeStartElement("Meta"); //$NON-NLS-1$
 							{
-								if (!sameFormat) {
-									writer.writeStartElement("Format"); //$NON-NLS-1$
-									writer.writeAttribute("xmlns", "syncml:metinf"); //$NON-NLS-1$ //$NON-NLS-2$
-									writer.writeCharacters(devInfoNode.getFormat());
-									writer.writeEndElement();
-								}
 								if (!sameType) {
 									writer.writeStartElement("Type"); //$NON-NLS-1$
 									writer.writeAttribute("xmlns", "syncml:metinf"); //$NON-NLS-1$ //$NON-NLS-2$
 									writer.writeCharacters(devInfoNode.getType());
+									writer.writeEndElement();
+								}
+								if (!sameFormat) {
+									writer.writeStartElement("Format"); //$NON-NLS-1$
+									writer.writeAttribute("xmlns", "syncml:metinf"); //$NON-NLS-1$ //$NON-NLS-2$
+									writer.writeCharacters(devInfoNode.getFormat());
 									writer.writeEndElement();
 								}
 							}
@@ -839,9 +846,10 @@ final class DMBasicSession implements Runnable {
 		});
 
 		if (nextNonce.equals("")) { //$NON-NLS-1$
-			jumpToStartTag(reader, "NextNonce"); //$NON-NLS-1$
-			if (reader.getLocalName().equals("NextNonce")) { //$NON-NLS-1$
-				nextNonce = reader.getElementText();
+			if (jumpToStartTag(reader, "NextNonce")) { //$NON-NLS-1$
+				if (reader.getLocalName().equals("NextNonce")) { //$NON-NLS-1$
+					nextNonce = reader.getElementText();
+				}
 			}
 		}
 	}
@@ -1340,38 +1348,38 @@ final class DMBasicSession implements Runnable {
 		}
 	}
 
-	private static void jumpToStartTag(final XMLStreamReader reader, final String tag) throws XMLStreamException {
+	private static boolean jumpToStartTag(final XMLStreamReader reader, final String tag) throws XMLStreamException {
 
 		while (true) {
 			if (reader.hasName() && reader.isStartElement()) {
 
 				if (reader.getLocalName().equals(tag)) {
-					break;
+					return true;
 				}
 			}
 
 			if (reader.hasNext()) {
 				reader.next();
 			} else {
-				break;
+				return false;
 			}
 		}
 	}
 
-	private static void jumpToEndTag(final XMLStreamReader reader, final String tag) throws XMLStreamException {
+	private static boolean jumpToEndTag(final XMLStreamReader reader, final String tag) throws XMLStreamException {
 
 		while (true) {
 			if (reader.hasName() && reader.isEndElement()) {
 
 				if (reader.getLocalName().equals(tag)) {
-					break;
+					return true;
 				}
 			}
 
 			if (reader.hasNext()) {
 				reader.next();
 			} else {
-				break;
+				return false;
 			}
 		}
 	}
