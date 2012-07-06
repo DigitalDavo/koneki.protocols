@@ -22,6 +22,8 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.xml.stream.StreamFilter;
 import javax.xml.stream.XMLStreamException;
@@ -49,7 +51,9 @@ import org.eclipse.koneki.protocols.omadm.client.internal.Activator;
 
 final class DMBasicSession implements Runnable {
 
-	private static final String ENCODING = "UTF-8"; //$NON-NLS-1$
+	private static final String UTF8 = "UTF-8"; //$NON-NLS-1$
+	private static final String ASCII = "ASCII"; //$NON-NLS-1$
+	private static final byte COLON = 0x3a;
 
 	private static final short UNKNOWN = 0;
 	private static final short STATUS = UNKNOWN + 1;
@@ -82,7 +86,7 @@ final class DMBasicSession implements Runnable {
 	private final DMAuthentication authentication;
 	private String nextNonce;
 	private boolean isAuthSessionContinue;
-	private int hmacMessageNumber;
+	private int authMessageNumber;
 
 	public DMBasicSession(final DMBasicClient dmClient, final URI server, final DMAuthentication userAuth, final URI client, final String sessionId,
 			final DMNode[] devInfoNodes, final CommandHandler commandHandler, final ProtocolListener[] protocolLinsteners,
@@ -100,7 +104,7 @@ final class DMBasicSession implements Runnable {
 		this.statusManager = new DMStatusManager();
 		this.commandSends = new HashMap<String, Object[]>();
 		this.nextNonce = ""; //$NON-NLS-1$
-		this.hmacMessageNumber = 0;
+		this.authMessageNumber = 0;
 	}
 
 	@Override
@@ -123,7 +127,7 @@ final class DMBasicSession implements Runnable {
 	}
 
 	void sendPackageAndReceivePackage() throws IOException, DMClientException {
-		this.dmClient.sendAndReceiveMessage(this.server, ENCODING, new DMMessenger() {
+		this.dmClient.sendAndReceiveMessage(this.server, UTF8, new DMMessenger() {
 
 			private String headerAuthentication = ""; //$NON-NLS-1$
 
@@ -134,7 +138,7 @@ final class DMBasicSession implements Runnable {
 					headerAuthentication = "algorithm=MD5, username=\"" + authentication.getUser() + "\",mac="; //$NON-NLS-1$ //$NON-NLS-2$
 
 					try {
-						headerAuthentication += computeMACAuthentication(message.toString(ENCODING));
+						headerAuthentication += computeMACAuthentication(message.toString(UTF8));
 					} catch (final UnsupportedEncodingException e) {
 						throw new DMClientException(e);
 					}
@@ -157,7 +161,7 @@ final class DMBasicSession implements Runnable {
 					if (DMBasicSession.this.protocolLinsteners.length != 0) {
 						final ByteArrayOutputStream message = new ByteArrayOutputStream();
 						DMBasicSession.this.writeMessage(new TeeOutputStream(out, message));
-						DMBasicSession.this.fireNewClientPackage(message.toString(ENCODING));
+						DMBasicSession.this.fireNewClientPackage(message.toString(UTF8));
 					} else {
 						DMBasicSession.this.writeMessage(out);
 					}
@@ -171,23 +175,38 @@ final class DMBasicSession implements Runnable {
 			@Override
 			public void readMessage(final InputStream in) throws DMClientException {
 				try {
+
+					final ByteArrayOutputStream message = new ByteArrayOutputStream();
+					TeeInputStream stream = new TeeInputStream(in, message);
+					XMLStreamReader reader = inputStreamToXMLStream(stream);
+
 					if (DMBasicSession.this.protocolLinsteners.length != 0) {
 
-						final ByteArrayOutputStream message = new ByteArrayOutputStream();
-
-						DMBasicSession.this.readMessage(new TeeInputStream(in, message));
-
 						/*
-						 * Get the next nonce value is not secure : the method should parse all the message and don't find the next nonce node. So the
-						 * next nonce is searched into a copy of the inputStream
+						 * TODO improve this check
 						 */
-						if (authentication.getAuthenticationType() == AuthenticationType.MD5) {
+						String stringMessage = message.toString(UTF8).replace("\n", ""); //$NON-NLS-1$ //$NON-NLS-2$
+						Pattern p = Pattern.compile(".*<Alert><CmdID>[0-9]*</CmdID><Data>1223</Data></Alert>.*"); //$NON-NLS-1$
+						Matcher m = p.matcher(stringMessage);
+						/*
+						 * The server didn't send a message (an alert with data = 1223) to stop the connection
+						 */
+						if (!m.matches()) {
+
+							DMBasicSession.this.readMessage(reader);
+							/*
+							 * Get the next nonce value is not secure : the method should parse all the message and don't find the next nonce node. So
+							 * the next nonce is searched into a copy of the inputStream
+							 */
 							DMBasicSession.this.readNextNonce(new ByteArrayInputStream(message.toByteArray()));
+						} else {
+							isSessionContinue = false;
+							isAuthSessionContinue = false;
 						}
 
-						DMBasicSession.this.fireNewServerPackage(message.toString(ENCODING));
+						DMBasicSession.this.fireNewServerPackage(message.toString(UTF8));
 					} else {
-						DMBasicSession.this.readMessage(in);
+						DMBasicSession.this.readMessage(reader);
 					}
 					if (!DMBasicSession.this.isManagementPhaseFired && DMBasicSession.this.isClientAuthenticated) {
 						DMBasicSession.this.fireSetupPhaseEnd();
@@ -295,7 +314,7 @@ final class DMBasicSession implements Runnable {
 			MessageDigest m = MessageDigest.getInstance("MD5"); //$NON-NLS-1$
 
 			// md5(username:password)
-			byte[] md5User = m.digest(userAuth.getBytes());
+			byte[] md5User = m.digest(userAuth.getBytes(ASCII));
 
 			// b64Encode(md5(username:password))
 			byte[] b64User = Base64.encodeBase64(md5User);
@@ -306,7 +325,7 @@ final class DMBasicSession implements Runnable {
 			// concat the B64User and decodedNonce
 			ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 			outputStream.write(b64User);
-			outputStream.write(':');
+			outputStream.write(COLON);
 			outputStream.write(decodedNonce);
 
 			userNonce = outputStream.toByteArray();
@@ -360,19 +379,21 @@ final class DMBasicSession implements Runnable {
 		try {
 
 			MessageDigest m = MessageDigest.getInstance("MD5"); //$NON-NLS-1$
+			byte[] userNonce = null;
 
-			byte[] userNonce = computeB64OfMd5OfUsernamePasswordPlusNonce();
+			userNonce = computeB64OfMd5OfUsernamePasswordPlusNonce();
 
 			// md5(omadm message)
-			byte[] md5Body = m.digest(messageBody.getBytes());
+			byte[] md5Body = m.digest(messageBody.getBytes(ASCII));
 
 			// b64Encode(md5(omadm message))
 			byte[] b64Body = Base64.encodeBase64(md5Body);
 
 			// concat userNonce and B64Body
 			ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+			outputStream = new ByteArrayOutputStream();
 			outputStream.write(userNonce);
-			outputStream.write(':');
+			outputStream.write(COLON);
 			outputStream.write(b64Body);
 
 			// md5(concat userNonce and B64Body)
@@ -381,7 +402,7 @@ final class DMBasicSession implements Runnable {
 			// b64Encode(md5(concat userNonce and B64Body))
 			byte[] authValue = Base64.encodeBase64(authDigestValue);
 
-			authFinalValue = new String(authValue);
+			authFinalValue = new String(authValue, ASCII);
 
 		} catch (NoSuchAlgorithmException e) {
 			Activator.logError("There was an error during the md5 authentication", e); //$NON-NLS-1$
@@ -390,13 +411,12 @@ final class DMBasicSession implements Runnable {
 		}
 
 		nextNonce = ""; //$NON-NLS-1$
-
 		return authFinalValue;
 	}
 
 	private void writeMessage(final OutputStream out) throws XMLStreamException {
-		final XMLStreamWriter writer = this.dmClient.createXMLStreamWriter(out, ENCODING);
-		writer.writeStartDocument(ENCODING, "1.0"); //$NON-NLS-1$
+		final XMLStreamWriter writer = this.dmClient.createXMLStreamWriter(out, UTF8);
+		writer.writeStartDocument(UTF8, "1.0"); //$NON-NLS-1$
 		// CHECKSTYLE:OFF (imbricated blocks)
 		{
 			writer.writeStartElement("SyncML"); //$NON-NLS-1$
@@ -723,8 +743,8 @@ final class DMBasicSession implements Runnable {
 		}
 	}
 
-	private void readMessage(final InputStream in) throws XMLStreamException {
-		final XMLStreamReader reader = this.dmClient.createXMLStreamReader(in, ENCODING, new StreamFilter() {
+	private XMLStreamReader inputStreamToXMLStream(final InputStream in) throws XMLStreamException {
+		final XMLStreamReader reader = this.dmClient.createXMLStreamReader(in, UTF8, new StreamFilter() {
 
 			@Override
 			public boolean accept(final XMLStreamReader reader) {
@@ -732,6 +752,11 @@ final class DMBasicSession implements Runnable {
 			}
 
 		});
+
+		return reader;
+	}
+
+	private void readMessage(final XMLStreamReader reader) throws XMLStreamException {
 
 		reader.next();
 
@@ -824,9 +849,11 @@ final class DMBasicSession implements Runnable {
 	}
 
 	private void readAlert(final XMLStreamReader reader) throws XMLStreamException {
+
 		reader.nextTag();
 		// CmdID
 		final String cmdID = reader.getElementText();
+
 		reader.nextTag();
 
 		this.statusManager.putStatus(this.currentServerMsgID, cmdID, "Alert", null, null, "406"); //$NON-NLS-1$ //$NON-NLS-2$
@@ -836,14 +863,7 @@ final class DMBasicSession implements Runnable {
 
 	private void readNextNonce(final InputStream in) throws XMLStreamException {
 
-		final XMLStreamReader reader = this.dmClient.createXMLStreamReader(in, ENCODING, new StreamFilter() {
-
-			@Override
-			public boolean accept(final XMLStreamReader reader) {
-				return !reader.isWhiteSpace() && !reader.isStandalone();
-			}
-
-		});
+		XMLStreamReader reader = inputStreamToXMLStream(in);
 
 		if (nextNonce.equals("")) { //$NON-NLS-1$
 			if (jumpToStartTag(reader, "NextNonce")) { //$NON-NLS-1$
@@ -872,8 +892,12 @@ final class DMBasicSession implements Runnable {
 
 		// Performs the status
 		if (cmd.equals("SyncHdr")) { //$NON-NLS-1$
-			this.hmacMessageNumber++;
+			this.authMessageNumber++;
 			switch (data) {
+			case 200:
+				this.isClientAuthenticated = true;
+				this.isAuthSessionContinue = false;
+				break;
 			case 212:
 				this.isClientAuthenticated = true;
 				this.isAuthSessionContinue = false;
@@ -888,8 +912,8 @@ final class DMBasicSession implements Runnable {
 				break;
 			case 401:
 				this.isClientAuthenticated = false;
-				if (authentication.getAuthenticationType() == AuthenticationType.MD5
-						|| ((hmacMessageNumber < 2) && (authentication.getAuthenticationType() == AuthenticationType.HMAC))) {
+				if ((authMessageNumber < 2) && authentication.getAuthenticationType() == AuthenticationType.MD5
+						|| ((authMessageNumber < 2) && (authentication.getAuthenticationType() == AuthenticationType.HMAC))) {
 					this.isAuthSessionContinue = true;
 				} else {
 					this.isAuthSessionContinue = false;
