@@ -119,38 +119,25 @@ final class DMBasicSession implements Runnable {
 			fireSessionEnd(e);
 		} catch (final DMClientException e) {
 			fireSessionEnd(e);
-		} catch (final RuntimeException e) {
-			fireSessionEnd(e);
-			throw e;
 		}
 	}
 
 	void sendPackageAndReceivePackage() throws IOException, DMClientException {
 		this.dmClient.sendAndReceiveMessage(this.server, ENCODING, new DMMessenger() {
 
-			private String headerAuthentication = "algorithm=MD5, username=\"" + authentication.getUser() + "\",mac=";
+			private String headerAuthentication = ""; //$NON-NLS-1$
 
 			public String getAuthenticationValue(final ByteArrayOutputStream message) throws DMClientException {
 
-				try {
+				if (authentication.getAuthenticationType() == AuthenticationType.HMAC) {
 
-					/*
-					 * TODO <begin : improve>
-					 */
-					/*
-					 * Get the next nonce value is not secure : the method should parse all the message and don't find the next nonce node. So the
-					 * next nonce is searched into a copy of the inputStream
-					 */
-					/*
-					 * TODO Remove the test for the tests
-					 */
-					// if (authentication.getAuthenticationType() == AuthenticationType.HMAC) {
+					headerAuthentication = "algorithm=MD5, username=\"" + authentication.getUser() + "\",mac="; //$NON-NLS-1$ //$NON-NLS-2$
 
-					headerAuthentication += computeMACAuthentication(message.toString(ENCODING));
-					// }
-
-				} catch (final UnsupportedEncodingException e) {
-					throw new DMClientException(e);
+					try {
+						headerAuthentication += computeMACAuthentication(message.toString(ENCODING));
+					} catch (final UnsupportedEncodingException e) {
+						throw new DMClientException(e);
+					}
 				}
 
 				return headerAuthentication;
@@ -277,12 +264,12 @@ final class DMBasicSession implements Runnable {
 
 			writer.writeEndElement();
 
-			//			writer.writeStartElement("Data"); //$NON-NLS-1$
-			// writer.writeCharacters(computeMd5Authentication());
+			break;
+
+		default:
 
 			break;
 		}
-
 		/*
 		 * There are no credential with HMAC
 		 */
@@ -290,56 +277,6 @@ final class DMBasicSession implements Runnable {
 			writer.writeEndElement();
 		}
 	}
-
-	// private void writeAuthentication(final XMLStreamWriter writer) throws XMLStreamException {
-	//
-	//		writer.writeStartElement("Cred"); //$NON-NLS-1$
-	//
-	//		writer.writeStartElement("Meta"); //$NON-NLS-1$
-	//
-	//		writer.writeStartElement("Format"); //$NON-NLS-1$
-	//		writer.writeAttribute("xmlns", "syncml:metinf"); //$NON-NLS-1$ //$NON-NLS-2$
-	//		writer.writeCharacters("b64"); //$NON-NLS-1$
-	// writer.writeEndElement();
-	//
-	//		writer.writeStartElement("Type"); //$NON-NLS-1$
-	//		writer.writeAttribute("xmlns", "syncml:metinf"); //$NON-NLS-1$ //$NON-NLS-2$
-	//
-	// switch (authentication.getAuthenticationType()) {
-	// /*
-	// * Add basic authentication
-	// */
-	// case BASIC:
-	//			writer.writeCharacters("syncml:auth-basic"); //$NON-NLS-1$
-	// writer.writeEndElement();
-	//
-	// writer.writeEndElement();
-	//
-	//			writer.writeStartElement("Data"); //$NON-NLS-1$
-	//
-	// writer.writeCharacters(computeBasicAuthentication());
-	// break;
-	// /*
-	// * Add md5 authentication
-	// */
-	// case MD5:
-	//
-	//			writer.writeCharacters("syncml:auth-md5"); //$NON-NLS-1$
-	// writer.writeEndElement();
-	//
-	// writer.writeEndElement();
-	//
-	//			writer.writeStartElement("Data"); //$NON-NLS-1$
-	//
-	// writer.writeCharacters(computeMd5Authentication());
-	//
-	// break;
-	// }
-	//
-	// writer.writeEndElement();
-	//
-	// writer.writeEndElement();
-	// }
 
 	private byte[] computeB64OfMd5OfUsernamePasswordPlusNonce() {
 		byte[] userNonce = null;
@@ -354,14 +291,14 @@ final class DMBasicSession implements Runnable {
 			byte[] md5User = m.digest(userAuth.getBytes());
 
 			// b64Encode(md5(username:password))
-			byte[] B64User = Base64.encodeBase64(md5User);
+			byte[] b64User = Base64.encodeBase64(md5User);
 
 			// decode the nonce sended by the server
 			byte[] decodedNonce = Base64.decodeBase64(nextNonce.getBytes());
-			// byte[] decodedNonce = nextNonce.getBytes();
 
+			// concat the B64User and decodedNonce
 			ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-			outputStream.write(B64User);
+			outputStream.write(b64User);
 			outputStream.write(':');
 			outputStream.write(decodedNonce);
 
@@ -370,16 +307,16 @@ final class DMBasicSession implements Runnable {
 		} catch (NoSuchAlgorithmException e) {
 			Activator.logError("There was an error during the md5 authentication", e); //$NON-NLS-1$
 		} catch (IOException e) {
-			// THe ByteArray throwed an exception
+			Activator.logError("There was an error during the base64 computation of the user and password", e); //$NON-NLS-1$
 		}
 		return userNonce;
 	}
 
 	private String computeBasicAuthentication() {
 		String userAuth = authentication.getUser() + ":" + authentication.getPassword(); //$NON-NLS-1$ 
-		byte[] B64Auth = Base64.encodeBase64(userAuth.getBytes());
+		byte[] b64Auth = Base64.encodeBase64(userAuth.getBytes());
 
-		return new String(B64Auth);
+		return new String(b64Auth);
 	}
 
 	private String computeMd5Authentication() {
@@ -396,9 +333,9 @@ final class DMBasicSession implements Runnable {
 			byte[] md5Nonce = m.digest(userNonce);
 
 			// b64Encode(md5(b64Encode(md5(username:password)):b64Decode(nextNonceDecodedFromServer)))
-			byte[] B64Nonce = Base64.encodeBase64(md5Nonce);
+			byte[] b64Nonce = Base64.encodeBase64(md5Nonce);
 
-			authValue = new String(B64Nonce);
+			authValue = new String(b64Nonce);
 
 		} catch (NoSuchAlgorithmException e) {
 			Activator.logError("There was an error during the md5 authentication", e); //$NON-NLS-1$
@@ -419,19 +356,22 @@ final class DMBasicSession implements Runnable {
 
 			byte[] userNonce = computeB64OfMd5OfUsernamePasswordPlusNonce();
 
-			//
+			// md5(omadm message)
 			byte[] md5Body = m.digest(messageBody.getBytes());
 
-			//
-			byte[] B64Body = Base64.encodeBase64(md5Body);
+			// b64Encode(md5(omadm message))
+			byte[] b64Body = Base64.encodeBase64(md5Body);
 
+			// concat userNonce and B64Body
 			ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 			outputStream.write(userNonce);
 			outputStream.write(':');
-			outputStream.write(B64Body);
+			outputStream.write(b64Body);
 
+			// md5(concat userNonce and B64Body)
 			byte[] authDigestValue = m.digest(outputStream.toByteArray());
 
+			// b64Encode(md5(concat userNonce and B64Body))
 			byte[] authValue = Base64.encodeBase64(authDigestValue);
 
 			authFinalValue = new String(authValue);
@@ -439,7 +379,7 @@ final class DMBasicSession implements Runnable {
 		} catch (NoSuchAlgorithmException e) {
 			Activator.logError("There was an error during the md5 authentication", e); //$NON-NLS-1$
 		} catch (IOException e) {
-			// The ByteArray throwed an exception
+			Activator.logError("There was an error during the hmac computation", e); //$NON-NLS-1$
 		}
 
 		nextNonce = ""; //$NON-NLS-1$
@@ -899,16 +839,9 @@ final class DMBasicSession implements Runnable {
 		});
 
 		if (nextNonce.equals("")) { //$NON-NLS-1$
-			try {
-				jumpToStartTag(reader, "NextNonce"); //$NON-NLS-1$
-				if (reader.getLocalName().equals("NextNonce")) { //$NON-NLS-1$
-					nextNonce = reader.getElementText();
-				}
-			} catch (Exception e) {
-				/*
-				 * The NextNonce node doesn't exist in the received message
-				 */
-				this.isAuthSessionContinue = false;
+			jumpToStartTag(reader, "NextNonce"); //$NON-NLS-1$
+			if (reader.getLocalName().equals("NextNonce")) { //$NON-NLS-1$
+				nextNonce = reader.getElementText();
 			}
 		}
 	}
@@ -939,7 +872,7 @@ final class DMBasicSession implements Runnable {
 				break;
 			case 407:
 				this.isClientAuthenticated = false;
-				if ((!nextNonce.equals("")) && (authentication.getAuthenticationType() == AuthenticationType.HMAC)) {
+				if ((!nextNonce.equals("")) && (authentication.getAuthenticationType() == AuthenticationType.HMAC)) { //$NON-NLS-1$
 					this.isAuthSessionContinue = true;
 				} else {
 					this.isAuthSessionContinue = false;
@@ -1410,13 +1343,10 @@ final class DMBasicSession implements Runnable {
 	private static void jumpToStartTag(final XMLStreamReader reader, final String tag) throws XMLStreamException {
 
 		while (true) {
-			if (reader.hasName()) {
+			if (reader.hasName() && reader.isStartElement()) {
 
-				if (reader.isStartElement()) {
-
-					if (reader.getLocalName().equals(tag)) {
-						break;
-					}
+				if (reader.getLocalName().equals(tag)) {
+					break;
 				}
 			}
 
@@ -1431,13 +1361,10 @@ final class DMBasicSession implements Runnable {
 	private static void jumpToEndTag(final XMLStreamReader reader, final String tag) throws XMLStreamException {
 
 		while (true) {
-			if (reader.hasName()) {
+			if (reader.hasName() && reader.isEndElement()) {
 
-				if (reader.isEndElement()) {
-
-					if (reader.getLocalName().equals(tag)) {
-						break;
-					}
+				if (reader.getLocalName().equals(tag)) {
+					break;
 				}
 			}
 

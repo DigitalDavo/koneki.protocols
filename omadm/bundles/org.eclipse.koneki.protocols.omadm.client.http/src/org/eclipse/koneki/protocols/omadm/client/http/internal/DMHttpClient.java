@@ -56,25 +56,20 @@ public class DMHttpClient extends DMBasicClient {
 
 				@Override
 				public void writeTo(final OutputStream out) throws IOException {
-					// try {
-					// messenger.writeMessage(out);
-					// } catch (final DMClientException e) {
-					// throw new IOException(e);
-					// }
-
 					out.write(myByteArray.toByteArray());
-
 				}
 
 			});
 
+			String authValue = messenger.getAuthenticationValue(myByteArray);
 			/*
-			 * TODO Call this method break the md5 authentication !
+			 * If the authValue is empty, the hmac authentication is not used. So, the message must not contain the "x-syncml-hmac" header. Else, the
+			 * other authentication doesn't work !
 			 */
-			String test = messenger.getAuthenticationValue(myByteArray);
-
-			Header header = new BasicHeader("x-syncml-hmac", test);
-			post.addHeader(header);
+			if (!authValue.equals("")) { //$NON-NLS-1$
+				Header header = new BasicHeader("x-syncml-hmac", authValue); //$NON-NLS-1$
+				post.addHeader(header);
+			}
 
 			entity.setChunked(false);
 			entity.setContentEncoding(encoding);
